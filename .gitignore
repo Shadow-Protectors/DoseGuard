@@ -1,45 +1,69 @@
-# Ignore generated build artifacts and local tool caches
+# DoseGuard - Comprehensive .gitignore
+
+# Android & Gradle Build Artifacts
 build/
 **/build/
 .gradle/
 **/.gradle/
-.idea/
-**/.idea/
 .kotlin/
 **/.kotlin/
-.vscode/
-**/.vscode/
 local.properties
 *.apk
 *.aab
 *.apks
+*.dex
+*.class
 *.jks
 *.keystore
-*.class
-*.dex
-*.log
+captures/
+.externalNativeBuild/
+.cxx/
 
-# Ignore test directories
-**/test/
-**/tests/
-
-test/
-tests/
-
-# Ignore all Markdown files except the main project README
-*.md
-!README.md
-
-# Ignore dependency folders
+# Node.js Dependencies & Cache
 node_modules/
 **/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python & Testing Caches
 __pycache__/
 **/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
+ENV/
+
+# Local Databases & Logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Environment & Secrets (Keep .env.example tracked)
 .env
 .env.*
+!.env.example
 
-# Ignore OS/editor files
+# IDE & Editor Directories
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+*.swp
+*.swo
+*~
+
+# Agent & AI tool workspace caches
+.agent/
+.agents/
+
+# Operating System Files
 .DS_Store
 Thumbs.db
+ehthumbs.db
