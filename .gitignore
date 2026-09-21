@@ -1,0 +1,45 @@
+# Ignore generated build artifacts and local tool caches
+build/
+**/build/
+.gradle/
+**/.gradle/
+.idea/
+**/.idea/
+.kotlin/
+**/.kotlin/
+.vscode/
+**/.vscode/
+local.properties
+*.apk
+*.aab
+*.apks
+*.jks
+*.keystore
+*.class
+*.dex
+*.log
+
+# Ignore test directories
+**/test/
+**/tests/
+
+test/
+tests/
+
+# Ignore all Markdown files except the main project README
+*.md
+!README.md
+
+# Ignore dependency folders
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+.venv/
+venv/
+.env
+.env.*
+
+# Ignore OS/editor files
+.DS_Store
+Thumbs.db
