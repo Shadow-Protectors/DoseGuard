@@ -3,14 +3,15 @@ package com.example.sih_26118_dosimeter_app
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import com.example.sih_26118_dosimeter_app.ui.DataEntryFragment
+import com.example.sih_26118_dosimeter_app.ui.HistoryFragment
 import com.example.sih_26118_dosimeter_app.ui.HomeFragment
+import com.example.sih_26118_dosimeter_app.ui.RegistrationFragment
 import com.example.sih_26118_dosimeter_app.ui.ScanFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 /**
- * Main Android Host Activity
- * Runs 100% locally on device with native XML layouts & UI fragments.
+ * DoseGuard Main Activity
+ * Manages core navigation across Dashboard, Scanner, Registration, and History screens.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -22,7 +23,6 @@ class MainActivity : AppCompatActivity() {
 
         bottomNav = findViewById(R.id.bottom_navigation)
 
-        // Load Home Dashboard by default
         if (savedInstanceState == null) {
             loadFragment(HomeFragment())
         }
@@ -31,7 +31,8 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_home -> loadFragment(HomeFragment())
                 R.id.nav_scan -> loadFragment(ScanFragment())
-                R.id.nav_data_entry -> loadFragment(DataEntryFragment())
+                R.id.nav_register -> loadFragment(RegistrationFragment())
+                R.id.nav_history -> loadFragment(HistoryFragment())
                 else -> false
             }
         }

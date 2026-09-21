@@ -1,122 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
-    android:padding="16dp">
+    android:background="@color/bg_surface"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manual Dosimeter Record Entry"
-            android:textColor="@color/text_primary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Enter shift inspection metrics for kinetic dose computation"
+            android:text="MANUAL INSPECTION"
             android:textColor="@color/text_secondary"
             android:textSize="12sp"
-            android:layout_marginBottom="16dp" />
+            android:textStyle="bold"
+            android:letterSpacing="0.05" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="16dp"
+            android:text="Dosimeter Record Entry"
+            android:textColor="@color/primary_navy"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
         <!-- Form Card -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_dark"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
+            app:cardBackgroundColor="@color/card_white"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             android:layout_marginBottom="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <!-- Worker ID Input -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Worker ID"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/et_worker_id"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="#20FFFFFF"
-                    android:padding="12dp"
-                    android:text="W-4029"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="10dp"
+                    android:hint="Worker ID"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_worker_id"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="W-4029" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Worker Name Input -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Worker Name"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/et_worker_name"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="#20FFFFFF"
-                    android:padding="12dp"
-                    android:text="Hari"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="10dp"
+                    android:hint="Worker Name"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_worker_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Vikram Singh" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Badge ID Input -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Dosimeter Badge Serial Number"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/et_badge_id"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="#20FFFFFF"
-                    android:padding="12dp"
-                    android:text="BDG-9901"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="10dp"
+                    android:hint="Badge Serial Number"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_badge_id"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="BDG-9901" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Department Input -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Plant Department"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/et_department"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="#20FFFFFF"
-                    android:padding="12dp"
-                    android:text="Refining"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="10dp"
+                    android:hint="Plant Department"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_department"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Refining Division" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Shift Hours & Delta-E Inputs in Horizontal layout -->
                 <LinearLayout
@@ -124,80 +112,61 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginEnd="8dp">
+                        android:layout_marginEnd="6dp"
+                        android:hint="Duration (hrs)"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Shift Duration (hrs)"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp" />
-
-                        <EditText
+                        <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_shift_hours"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="#20FFFFFF"
                             android:inputType="numberDecimal"
-                            android:padding="12dp"
-                            android:text="8.0"
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp" />
-                    </LinearLayout>
+                            android:text="8.0" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="8dp">
+                        android:layout_marginStart="6dp"
+                        android:hint="Delta-E (ΔE)"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Measured Delta-E (ΔE)"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp" />
-
-                        <EditText
+                        <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_delta_e"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="#20FFFFFF"
                             android:inputType="numberDecimal"
-                            android:padding="12dp"
-                            android:text="14.5"
-                            android:textColor="@color/accent_cyan"
-                            android:textSize="14sp" />
-                    </LinearLayout>
+                            android:text="14.5" />
+                    </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
+
+                <!-- Submit Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_submit_log"
+                    style="@style/PrimaryButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Calculate Exposure &amp; Save Record"
+                    app:icon="@drawable/ic_shield"
+                    app:iconTint="@color/white" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <!-- Submit Button -->
-        <Button
-            android:id="@+id/btn_submit_log"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:backgroundTint="@color/accent_cyan"
-            android:text="Calculate Exposure &amp; Save Record"
-            android:textColor="@color/bg_dark"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
 
         <!-- Output Calculation Summary Banner -->
         <androidx.cardview.widget.CardView
             android:id="@+id/card_entry_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_dark"
-            app:cardCornerRadius="12dp"
+            app:cardBackgroundColor="@color/card_white"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
             android:visibility="gone">
 
             <LinearLayout
@@ -210,9 +179,9 @@
                     android:id="@+id/tv_result_header"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Exposure Calculation Result"
-                    android:textColor="@color/accent_cyan"
-                    android:textSize="14sp"
+                    android:text="EXPOSURE CALCULATION RESULT"
+                    android:textColor="@color/primary_navy"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -227,4 +196,4 @@
         </androidx.cardview.widget.CardView>
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

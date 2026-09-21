@@ -1,14 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_dark">#0A0E17</color>
-    <color name="card_dark">#161F30</color>
-    <color name="accent_cyan">#00E5FF</color>
-    <color name="accent_blue">#00E5FF</color>
+    <!-- Brand Primary Navy & Blue -->
+    <color name="primary_navy">#0D47A1</color>
+    <color name="primary_blue">#1565C0</color>
+    <color name="primary_light">#E3F2FD</color>
+    <color name="accent_blue">#0288D1</color>
+    <color name="accent_soft">#BBDEFB</color>
+
+    <!-- Industrial Neutral Surfaces -->
+    <color name="bg_surface">#F4F7FA</color>
+    <color name="card_white">#FFFFFF</color>
+    <color name="card_stroke">#E2E8F0</color>
+    <color name="divider">#EDF2F7</color>
+
+    <!-- High-Contrast Typography -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#475569</color>
+    <color name="text_muted">#94A3B8</color>
     <color name="white">#FFFFFF</color>
-    <color name="status_safe">#00E676</color>
-    <color name="status_warning">#FF9100</color>
-    <color name="status_danger">#FF1744</color>
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#B0BEC5</color>
-    <color name="border_cyan">#3300E5FF</color>
+
+    <!-- Statutory Hazard & Exposure Status -->
+    <color name="status_safe">#10B981</color>
+    <color name="status_safe_bg">#DCFCE7</color>
+    <color name="status_warning">#F59E0B</color>
+    <color name="status_warning_bg">#FEF3C7</color>
+    <color name="status_high">#F97316</color>
+    <color name="status_high_bg">#FFEDD5</color>
+    <color name="status_danger">#EF4444</color>
+    <color name="status_danger_bg">#FEE2E2</color>
+
+    <!-- Legacy Compatibility Aliases -->
+    <color name="bg_dark">#F4F7FA</color>
+    <color name="card_dark">#FFFFFF</color>
+    <color name="accent_cyan">#1565C0</color>
+    <color name="border_cyan">#E2E8F0</color>
 </resources>

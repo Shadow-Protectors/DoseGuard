@@ -1,8 +1,9 @@
 package com.example.sih_26118_dosimeter_app.sync
 
 import android.content.Context
-import androidx.work.Worker
+import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.sih_26118_dosimeter_app.repository.DoseGuardRepository
 
 /**
  * Android WorkManager Background Synchronization Engine
@@ -10,15 +11,19 @@ import androidx.work.WorkerParameters
  * Listens for network connectivity and synchronizes pending local Room DB shift logs
  * to the central Node.js MongoDB backend using exponential backoff retry policies.
  */
-class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
-    override fun doWork(): Result {
+    override suspend fun doWork(): Result {
         return try {
-            // Background network synchronization logic
-            // Queries records where syncStatus == "PENDING" and posts to Retrofit ApiService
+            val repository = DoseGuardRepository(applicationContext)
+            val count = repository.syncPendingLogsToCloud()
             Result.success()
         } catch (e: Exception) {
-            Result.retry()
+            if (runAttemptCount < 3) {
+                Result.retry()
+            } else {
+                Result.failure()
+            }
         }
     }
 }
