@@ -86,7 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
                         designation = "Plant Operator",
                         shift = "Morning",
                         status = "ACTIVE",
-                        createdAt = now - (7 * dayMs)
+                        createdAt = now - (30 * dayMs)
                     )
                 )
             }
@@ -101,11 +101,12 @@ abstract class AppDatabase : RoomDatabase() {
                         designation = "Safety Inspector",
                         shift = "Evening",
                         status = "ACTIVE",
-                        createdAt = now - (3 * dayMs)
+                        createdAt = now - (15 * dayMs)
                     )
                 )
             }
 
+            // 1. Active & Valid Band
             if (bandDao.getById("WB-1001") == null) {
                 bandDao.insert(
                     BandEntity(
@@ -122,6 +123,41 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
 
+            // 2. EXPIRED Band (Shelf Life Past Expiry)
+            if (bandDao.getById("WB-EXP-01") == null) {
+                bandDao.insert(
+                    BandEntity(
+                        bandId = "WB-EXP-01",
+                        workerId = "W-1001",
+                        qrData = "DG:BAND:WB-EXP-01",
+                        issueDate = now - (40 * dayMs),
+                        expiryDate = now - (2 * dayMs), // Expired 2 days ago
+                        bandStatus = "EXPIRED",
+                        maximumDose = 50.0,
+                        currentEstimatedDose = 4.8,
+                        lastScanTime = now - (3 * dayMs)
+                    )
+                )
+            }
+
+            // 3. SATURATED Band (Maximum 50.0 ppm·hr Dose Reached)
+            if (bandDao.getById("WB-SAT-99") == null) {
+                bandDao.insert(
+                    BandEntity(
+                        bandId = "WB-SAT-99",
+                        workerId = "W-1001",
+                        qrData = "DG:BAND:WB-SAT-99",
+                        issueDate = now - (10 * dayMs),
+                        expiryDate = now + (20 * dayMs),
+                        bandStatus = "SATURATED",
+                        maximumDose = 50.0,
+                        currentEstimatedDose = 50.0, // 100% capacity reached
+                        lastScanTime = now - 1800_000L
+                    )
+                )
+            }
+
+            // 4. Critical Active Band
             if (bandDao.getById("WB-CRIT-99") == null) {
                 bandDao.insert(
                     BandEntity(
@@ -138,18 +174,26 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
 
-            // Seed historical shift exposures for W-1001
-            val sampleDays = listOf(
-                Pair(now - (6 * dayMs), 0.42),
-                Pair(now - (5 * dayMs), 0.55),
-                Pair(now - (4 * dayMs), 0.85),
-                Pair(now - (3 * dayMs), 1.20),
-                Pair(now - (2 * dayMs), 1.65),
-                Pair(now - (1 * dayMs), 2.40),
+            // 30 Days of Historical Shift Exposure Records for W-1001
+            val sampleHistoryDays = listOf(
+                Pair(now - (28 * dayMs), 0.30),
+                Pair(now - (25 * dayMs), 0.35),
+                Pair(now - (22 * dayMs), 0.40),
+                Pair(now - (19 * dayMs), 0.45),
+                Pair(now - (16 * dayMs), 0.50),
+                Pair(now - (13 * dayMs), 0.65),
+                Pair(now - (10 * dayMs), 0.80),
+                Pair(now - (7 * dayMs), 0.95),
+                Pair(now - (6 * dayMs), 1.10),
+                Pair(now - (5 * dayMs), 1.45),
+                Pair(now - (4 * dayMs), 1.85),
+                Pair(now - (3 * dayMs), 2.20),
+                Pair(now - (2 * dayMs), 2.65),
+                Pair(now - (1 * dayMs), 2.90),
                 Pair(now - (3600_000L), 3.20)
             )
 
-            for ((time, dose) in sampleDays) {
+            for ((time, dose) in sampleHistoryDays) {
                 val risk = when {
                     dose < 1.0 -> "SAFE"
                     dose < 2.5 -> "MODERATE"

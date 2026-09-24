@@ -12,10 +12,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * QrScanViewModel — handles band lookup after a QR scan.
+ * QrScanViewModel — handles band lookup and statutory validity gating.
  *
- * Flow:
- *   Idle → Scanning → BandFound(worker linked) / BandUnassigned / Error
+ * Prevents expired or saturated bands from reaching the camera shutter.
  */
 class QrScanViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -24,12 +23,14 @@ class QrScanViewModel(application: Application) : AndroidViewModel(application) 
     sealed class ScanState {
         object Idle : ScanState()
         object Processing : ScanState()
-        /** Band exists in DB and is linked to a worker. */
+        /** Valid band linked to an active worker. */
         data class BandAssigned(val band: BandEntity, val worker: WorkerEntity) : ScanState()
-        /** Band exists but no worker linked yet. */
+        /** New or unassigned band — needs worker registration or assignment. */
         data class BandUnassigned(val band: BandEntity) : ScanState()
-        /** Brand new band — never seen before. */
+        /** Brand new band never registered before. */
         data class NewBand(val bandId: String, val qrData: String) : ScanState()
+        /** Band is expired, saturated, or replaced — blocked from camera shutter. */
+        data class BandInvalid(val bandId: String, val reason: String, val workerId: String) : ScanState()
         data class Error(val message: String) : ScanState()
     }
 
@@ -42,23 +43,34 @@ class QrScanViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             try {
-                // Extract band ID — QR payload format: "DG:BAND-ID:BAND-0042" or plain "BAND-0042"
                 val bandId = parseBandId(rawQrValue)
-
                 val band = repo.getBandById(bandId)
+
                 if (band == null) {
-                    // First time this band is seen — register it and ask for worker details
+                    // First time this band is seen — register it in local DB
                     repo.registerNewBand(bandId, rawQrValue)
                     _state.value = ScanState.NewBand(bandId, rawQrValue)
                 } else if (band.workerId.isBlank()) {
                     _state.value = ScanState.BandUnassigned(band)
                 } else {
-                    val worker = repo.getWorkerById(band.workerId)
-                    if (worker != null) {
-                        _state.value = ScanState.BandAssigned(band, worker)
-                    } else {
-                        // Band has a workerId but the worker record was deleted — treat as unassigned
-                        _state.value = ScanState.BandUnassigned(band)
+                    // Evaluate validity gate (check expiration & saturation)
+                    val validity = repo.evaluateBandValidity(band)
+                    when (validity) {
+                        is DoseGuardRepository.BandValidity.Invalid -> {
+                            _state.value = ScanState.BandInvalid(
+                                bandId = band.bandId,
+                                reason = validity.reason,
+                                workerId = band.workerId
+                            )
+                        }
+                        is DoseGuardRepository.BandValidity.Valid -> {
+                            val worker = repo.getWorkerById(band.workerId)
+                            if (worker != null) {
+                                _state.value = ScanState.BandAssigned(band, worker)
+                            } else {
+                                _state.value = ScanState.BandUnassigned(band)
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -71,8 +83,6 @@ class QrScanViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = ScanState.Idle
     }
 
-    /** Parse band ID from various QR formats:
-     *  "DG:BAND:BAND-0042", "BAND-0042", "https://doseguard.app/band/BAND-0042" */
     private fun parseBandId(raw: String): String {
         return when {
             raw.contains("DG:BAND:") -> raw.substringAfter("DG:BAND:").trim()

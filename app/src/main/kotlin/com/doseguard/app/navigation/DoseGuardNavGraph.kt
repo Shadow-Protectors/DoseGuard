@@ -11,20 +11,14 @@ import com.doseguard.app.ui.screens.*
 import com.doseguard.app.viewmodel.*
 
 /**
- * DoseGuardNavGraph — wires all screens together.
- *
- * The ScanViewModel is scoped to the NavGraph (not individual composables) so that
- * CameraCaptureScreen and ScanResultScreen can share the same instance.
- *
- * The repository is passed directly to WorkerDetailScreen because it only needs
- * simple suspend reads and doesn't require a full ViewModel.
+ * DoseGuardNavGraph — wires all screens together including validity gating,
+ * replacement band assignment, and continuous exposure history.
  */
 @Composable
 fun DoseGuardNavGraph(
     navController: NavHostController,
     repository: DoseGuardRepository
 ) {
-    // ViewModel shared between Camera and Result screens
     val scanVm: ScanViewModel = viewModel()
 
     NavHost(
@@ -54,11 +48,44 @@ fun DoseGuardNavGraph(
                 onNewBand = { bandId, qrData ->
                     navController.navigate(Screen.WorkerRegistration.createRoute(bandId, qrData))
                 },
+                onBandInvalid = { bandId, reason, workerId ->
+                    navController.navigate(Screen.BandInvalid.createRoute(bandId, reason, workerId))
+                },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ── 3. Worker Registration ────────────────────────────────────────────
+        // ── 3. Band Invalidation Gate (Blocked Camera / Replacement) ──────────
+        composable(
+            route = Screen.BandInvalid.route,
+            arguments = listOf(
+                navArgument("bandId")   { type = NavType.StringType },
+                navArgument("reason")   { type = NavType.StringType },
+                navArgument("workerId") { type = NavType.StringType }
+            )
+        ) { backStack ->
+            val bandId   = backStack.arguments?.getString("bandId")   ?: ""
+            val reason   = backStack.arguments?.getString("reason")   ?: ""
+            val workerId = backStack.arguments?.getString("workerId") ?: ""
+
+            BandInvalidScreen(
+                bandId             = bandId,
+                reason             = reason,
+                workerId           = workerId,
+                repository         = repository,
+                onIssueReplacement = { wId ->
+                    navController.navigate(Screen.QrScan.route) {
+                        popUpTo(Screen.QrScan.route) { inclusive = true }
+                    }
+                },
+                onViewHistory = { wId ->
+                    navController.navigate(Screen.ExposureHistory.createRoute(wId, bandId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── 4. Worker Registration / Replacement ─────────────────────────────
         composable(
             route     = Screen.WorkerRegistration.route,
             arguments = listOf(
@@ -83,7 +110,7 @@ fun DoseGuardNavGraph(
             )
         }
 
-        // ── 4. Worker Detail ──────────────────────────────────────────────────
+        // ── 5. Worker Detail ──────────────────────────────────────────────────
         composable(
             route     = Screen.WorkerDetail.route,
             arguments = listOf(
@@ -94,7 +121,6 @@ fun DoseGuardNavGraph(
             val workerId = backStack.arguments?.getString("workerId") ?: ""
             val bandId   = backStack.arguments?.getString("bandId")   ?: ""
 
-            // Load worker context into shared ScanViewModel
             LaunchedEffect(workerId, bandId) { scanVm.loadContext(workerId, bandId) }
 
             WorkerDetailScreen(
@@ -105,13 +131,13 @@ fun DoseGuardNavGraph(
                     navController.navigate(Screen.CameraCapture.createRoute(bandId, workerId))
                 },
                 onViewHistory = {
-                    navController.navigate(Screen.ExposureHistory.createRoute(workerId))
+                    navController.navigate(Screen.ExposureHistory.createRoute(workerId, bandId))
                 },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ── 5. Camera Capture ─────────────────────────────────────────────────
+        // ── 6. Camera Capture ─────────────────────────────────────────────────
         composable(
             route     = Screen.CameraCapture.route,
             arguments = listOf(
@@ -133,7 +159,7 @@ fun DoseGuardNavGraph(
             )
         }
 
-        // ── 6. Scan Result ────────────────────────────────────────────────────
+        // ── 7. Scan Result ────────────────────────────────────────────────────
         composable(
             route     = Screen.ScanResult.route,
             arguments = listOf(
@@ -149,7 +175,7 @@ fun DoseGuardNavGraph(
                 workerId     = workerId,
                 vm           = scanVm,
                 onViewHistory = {
-                    navController.navigate(Screen.ExposureHistory.createRoute(workerId)) {
+                    navController.navigate(Screen.ExposureHistory.createRoute(workerId, bandId)) {
                         popUpTo(Screen.WorkerDetail.createRoute(workerId, bandId))
                     }
                 },
@@ -166,22 +192,27 @@ fun DoseGuardNavGraph(
             )
         }
 
-        // ── 7. Exposure History ───────────────────────────────────────────────
+        // ── 8. Exposure History (With 7-Day / 30-Day Filtering) ───────────────
         composable(
             route     = Screen.ExposureHistory.route,
-            arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("workerId") { type = NavType.StringType },
+                navArgument("bandId")   { type = NavType.StringType; defaultValue = "all" }
+            )
         ) { backStack ->
             val workerId = backStack.arguments?.getString("workerId") ?: ""
+            val bandId   = backStack.arguments?.getString("bandId")   ?: "all"
             val vm: HistoryViewModel = viewModel()
+
             ExposureHistoryScreen(
                 workerId = workerId,
-                bandId   = "",   // history screen queries by workerId only
+                bandId   = bandId,
                 vm       = vm,
                 onBack   = { navController.popBackStack() }
             )
         }
 
-        // ── 8. Alert ──────────────────────────────────────────────────────────
+        // ── 9. Alert ──────────────────────────────────────────────────────────
         composable(
             route     = Screen.Alert.route,
             arguments = listOf(
@@ -199,12 +230,12 @@ fun DoseGuardNavGraph(
                 vm            = vm,
                 onBack        = { navController.popBackStack() },
                 onViewHistory = {
-                    navController.navigate(Screen.ExposureHistory.createRoute(workerId))
+                    navController.navigate(Screen.ExposureHistory.createRoute(workerId, bandId))
                 }
             )
         }
 
-        // ── 9. Settings ───────────────────────────────────────────────────────
+        // ── 10. Settings ──────────────────────────────────────────────────────
         composable(Screen.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })
         }

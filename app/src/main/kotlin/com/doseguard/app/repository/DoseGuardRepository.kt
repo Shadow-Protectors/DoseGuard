@@ -17,11 +17,7 @@ import java.util.UUID
  * DoseGuardRepository — single source of truth for all app data.
  *
  * Mediates between ViewModels and Room DAOs.
- * The exposureEstimator is injected via constructor so it can be swapped for testing
- * or for the final TFLite-backed implementation.
- *
- * [AI_INTEGRATION_POINT] — pass TFLiteEstimator() here instead of KineticColorEstimator()
- *   when the real model is available.
+ * Fixes cumulative double counting by updating cumulative dose directly from latest optical reading.
  */
 class DoseGuardRepository(
     context: Context,
@@ -33,6 +29,11 @@ class DoseGuardRepository(
     private val bandDao = db.bandDao()
     private val historyDao = db.exposureHistoryDao()
     private val alertDao = db.alertDao()
+
+    sealed class BandValidity {
+        object Valid : BandValidity()
+        data class Invalid(val reason: String, val message: String) : BandValidity()
+    }
 
     // ── Reactive flows for UI ────────────────────────────────────────────────────
 
@@ -53,49 +54,85 @@ class DoseGuardRepository(
         workerDao.getById(workerId)
     }
 
-    // ── Band operations ──────────────────────────────────────────────────────────
+    suspend fun getAllWorkers(): List<WorkerEntity> = withContext(Dispatchers.IO) {
+        workerDao.getAll()
+    }
 
-    /**
-     * Look up a band by its QR-derived ID.
-     * Returns null if the band has never been scanned before.
-     */
+    // ── Band operations & Validity Gate ──────────────────────────────────────────
+
     suspend fun getBandById(bandId: String): BandEntity? = withContext(Dispatchers.IO) {
         bandDao.getById(bandId)
     }
 
-    /**
-     * Register a brand-new band from a first-time QR scan.
-     * bandStatus starts as UNASSIGNED until a worker is linked.
-     */
     suspend fun registerNewBand(bandId: String, qrData: String): BandEntity = withContext(Dispatchers.IO) {
         val band = BandEntity(bandId = bandId, qrData = qrData)
         bandDao.insert(band)
         band
     }
 
-    /** Link a band to a worker (called after registration form is submitted). */
     suspend fun assignBandToWorker(bandId: String, workerId: String) = withContext(Dispatchers.IO) {
         bandDao.assignWorker(bandId, workerId)
+    }
+
+    /**
+     * Replacement-Band Flow:
+     * Retires the old expired/saturated band and links the new band to the existing worker.
+     * Preserves continuous health history without creating duplicate worker rows.
+     */
+    suspend fun replaceBandForWorker(oldBandId: String, newBandId: String, workerId: String) = withContext(Dispatchers.IO) {
+        if (oldBandId.isNotBlank()) {
+            bandDao.markBandReplaced(oldBandId)
+        }
+        bandDao.assignWorker(newBandId, workerId)
+    }
+
+    /**
+     * Check if a band is still safe and valid for scanning.
+     * Detects EXPIRED shelf-life, SATURATED optical limit, or REPLACED retirement.
+     */
+    suspend fun evaluateBandValidity(band: BandEntity): BandValidity = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+
+        if (band.bandStatus == "REPLACED") {
+            return@withContext BandValidity.Invalid(
+                reason = "REPLACED",
+                message = "This dosimeter wristband has been retired and replaced with a new unit."
+            )
+        }
+
+        if (band.bandStatus == "EXPIRED" || now > band.expiryDate) {
+            bandDao.updateStatus(band.bandId, "EXPIRED")
+            return@withContext BandValidity.Invalid(
+                reason = "EXPIRED",
+                message = "Dosimeter chemical shelf-life expired. Sensor strip chemistry is no longer calibrated."
+            )
+        }
+
+        if (band.bandStatus == "SATURATED" || band.currentEstimatedDose >= band.maximumDose) {
+            bandDao.updateStatus(band.bandId, "SATURATED")
+            return@withContext BandValidity.Invalid(
+                reason = "SATURATED",
+                message = "Maximum dose capacity (${band.maximumDose} ppm·hr) reached. Sensor strip is fully saturated."
+            )
+        }
+
+        BandValidity.Valid
     }
 
     fun getHistoryByWorkerFlow(workerId: String): Flow<List<ExposureHistoryEntity>> =
         historyDao.getByWorkerFlow(workerId)
 
+    fun getHistoryByBandFlow(bandId: String): Flow<List<ExposureHistoryEntity>> =
+        historyDao.getByBandFlow(bandId)
+
     fun getRecentHistoryFlow(workerId: String, since: Long): Flow<List<ExposureHistoryEntity>> =
         historyDao.getRecentByWorkerFlow(workerId, since)
 
-    // ── Core scan & save ─────────────────────────────────────────────────────────
+    // ── Core scan & save (Direct Cumulative Dose Update) ─────────────────────────
 
     /**
      * Process a captured image and save the result.
-     *
-     * Steps:
-     * 1. Run ExposureEstimator on the image bytes
-     * 2. Persist ExposureHistoryEntity
-     * 3. Accumulate dose on BandEntity
-     * 4. Create AlertEntity if above threshold
-     *
-     * @return The EstimationResult so the caller (ViewModel) can drive UI state.
+     * Updates cumulative dose directly from the physical strip reading (prevents double-counting).
      */
     suspend fun processScanAndSave(
         bandId: String,
@@ -108,13 +145,11 @@ class DoseGuardRepository(
     ): ExposureEstimator.EstimationResult = withContext(Dispatchers.IO) {
 
         val result = estimator.estimate(imageBytes, shiftHours)
-
-        val historyId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
 
         historyDao.insert(
             ExposureHistoryEntity(
-                historyId = historyId,
+                historyId = UUID.randomUUID().toString(),
                 workerId = workerId,
                 bandId = bandId,
                 scanTime = now,
@@ -127,8 +162,8 @@ class DoseGuardRepository(
             )
         )
 
-        // Accumulate on the band
-        bandDao.addDose(bandId, result.estimatedDosePpmHr, now)
+        // Set latest cumulative dose directly — fixes double count bug
+        bandDao.updateDose(bandId, result.estimatedDosePpmHr, now)
 
         // Fire alert if HIGH or CRITICAL
         if (result.riskLevel == "HIGH" || result.riskLevel == "CRITICAL") {
@@ -148,7 +183,6 @@ class DoseGuardRepository(
 
     /**
      * Simulated scan — skips real image processing and uses a synthetic ΔE value.
-     * Used by demo preset chips (Safe / Caution / Critical buttons).
      */
     suspend fun processSimulatedScan(
         bandId: String,
@@ -157,9 +191,7 @@ class DoseGuardRepository(
         shiftHours: Double = 8.0
     ): ExposureEstimator.EstimationResult = withContext(Dispatchers.IO) {
 
-        // [AI_INTEGRATION_POINT] — this branch will be removed once real camera flow is complete
-        val solver = estimator as? KineticColorEstimator
-            ?: KineticColorEstimator()
+        val solver = estimator as? KineticColorEstimator ?: KineticColorEstimator()
         val result = solver.estimateFromDeltaE(deltaE, shiftHours)
 
         val now = System.currentTimeMillis()
@@ -175,7 +207,9 @@ class DoseGuardRepository(
                 riskLevel = result.riskLevel
             )
         )
-        bandDao.addDose(bandId, result.estimatedDosePpmHr, now)
+
+        // Set latest cumulative dose directly — fixes double count bug
+        bandDao.updateDose(bandId, result.estimatedDosePpmHr, now)
 
         if (result.riskLevel == "HIGH" || result.riskLevel == "CRITICAL") {
             alertDao.insert(

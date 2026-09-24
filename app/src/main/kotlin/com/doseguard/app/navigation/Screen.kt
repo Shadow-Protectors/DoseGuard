@@ -14,14 +14,19 @@ sealed class Screen(val route: String) {
     object WorkerDetail    : Screen("worker_detail/{workerId}/{bandId}") {
         fun createRoute(workerId: String, bandId: String) = "worker_detail/$workerId/$bandId"
     }
+    object BandInvalid     : Screen("band_invalid/{bandId}/{reason}/{workerId}") {
+        fun createRoute(bandId: String, reason: String, workerId: String = "") =
+            "band_invalid/$bandId/$reason/${if (workerId.isBlank()) "none" else workerId}"
+    }
     object CameraCapture   : Screen("camera_capture/{bandId}/{workerId}") {
         fun createRoute(bandId: String, workerId: String) = "camera_capture/$bandId/$workerId"
     }
     object ScanResult      : Screen("scan_result/{bandId}/{workerId}") {
         fun createRoute(bandId: String, workerId: String) = "scan_result/$bandId/$workerId"
     }
-    object ExposureHistory : Screen("exposure_history/{workerId}") {
-        fun createRoute(workerId: String) = "exposure_history/$workerId"
+    object ExposureHistory : Screen("exposure_history/{workerId}/{bandId}") {
+        fun createRoute(workerId: String, bandId: String = "") =
+            "exposure_history/$workerId/${if (bandId.isBlank()) "all" else bandId}"
     }
     object Alert           : Screen("alert/{workerId}/{bandId}") {
         fun createRoute(workerId: String, bandId: String) = "alert/$workerId/$bandId"

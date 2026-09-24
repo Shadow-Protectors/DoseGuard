@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/**
+ * WorkerRegistrationViewModel — handles both New Worker creation and
+ * Band Replacement for existing personnel without splitting medical health records.
+ */
 class WorkerRegistrationViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = DoseGuardRepository(application)
@@ -25,12 +29,18 @@ class WorkerRegistrationViewModel(application: Application) : AndroidViewModel(a
     private val _state = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
     val state: StateFlow<RegistrationState> = _state.asStateFlow()
 
-    // Form field states — bound directly to TextField values in the Compose UI
+    private val _existingWorkers = MutableStateFlow<List<WorkerEntity>>(emptyList())
+    val existingWorkers: StateFlow<List<WorkerEntity>> = _existingWorkers.asStateFlow()
+
+    // Form field states for new worker registration
     val name          = MutableStateFlow("")
     val employeeId    = MutableStateFlow("")
     val department    = MutableStateFlow("")
     val designation   = MutableStateFlow("")
     val shift         = MutableStateFlow("Morning")
+
+    // Selected existing worker for replacement flow
+    val selectedWorkerId = MutableStateFlow("")
 
     // Validation errors
     val nameError        = MutableStateFlow<String?>(null)
@@ -38,13 +48,27 @@ class WorkerRegistrationViewModel(application: Application) : AndroidViewModel(a
     val departmentError  = MutableStateFlow<String?>(null)
     val designationError = MutableStateFlow<String?>(null)
 
-    fun register(bandId: String) {
+    init {
+        loadExistingWorkers()
+    }
+
+    fun loadExistingWorkers() {
+        viewModelScope.launch {
+            _existingWorkers.value = repo.getAllWorkers()
+            if (_existingWorkers.value.isNotEmpty() && selectedWorkerId.value.isBlank()) {
+                selectedWorkerId.value = _existingWorkers.value.first().workerId
+            }
+        }
+    }
+
+    /** Register brand-new worker row and link band */
+    fun registerNewWorker(bandId: String) {
         if (!validate()) return
         _state.value = RegistrationState.Saving
 
         viewModelScope.launch {
             try {
-                val workerId = "W-${UUID.randomUUID().toString().takeLast(8).uppercase()}"
+                val workerId = "W-${UUID.randomUUID().toString().takeLast(6).uppercase()}"
                 val worker = WorkerEntity(
                     workerId    = workerId,
                     employeeId  = employeeId.value.trim(),
@@ -58,6 +82,29 @@ class WorkerRegistrationViewModel(application: Application) : AndroidViewModel(a
                 _state.value = RegistrationState.Success(workerId)
             } catch (e: Exception) {
                 _state.value = RegistrationState.Error(e.message ?: "Registration failed")
+            }
+        }
+    }
+
+    /**
+     * Replacement Band Flow:
+     * Link newly scanned band to an already existing worker profile.
+     * Retires the old band if oldBandId is provided.
+     */
+    fun assignToExistingWorker(newBandId: String, oldBandId: String = "") {
+        val workerId = selectedWorkerId.value
+        if (workerId.isBlank()) {
+            _state.value = RegistrationState.Error("Please select an existing worker")
+            return
+        }
+
+        _state.value = RegistrationState.Saving
+        viewModelScope.launch {
+            try {
+                repo.replaceBandForWorker(oldBandId, newBandId, workerId)
+                _state.value = RegistrationState.Success(workerId)
+            } catch (e: Exception) {
+                _state.value = RegistrationState.Error(e.message ?: "Band assignment failed")
             }
         }
     }

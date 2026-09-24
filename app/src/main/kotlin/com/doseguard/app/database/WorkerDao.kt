@@ -14,6 +14,9 @@ interface WorkerDao {
     suspend fun getById(workerId: String): WorkerEntity?
 
     @Query("SELECT * FROM workers ORDER BY createdAt DESC")
+    suspend fun getAll(): List<WorkerEntity>
+
+    @Query("SELECT * FROM workers ORDER BY createdAt DESC")
     fun getAllFlow(): Flow<List<WorkerEntity>>
 
     @Query("SELECT * FROM workers ORDER BY createdAt DESC LIMIT 1")

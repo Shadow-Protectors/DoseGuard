@@ -1,6 +1,8 @@
 package com.doseguard.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.doseguard.app.model.ExposureHistoryEntity
 import com.doseguard.app.ui.theme.*
@@ -27,7 +31,7 @@ import java.util.*
 @Composable
 fun ExposureHistoryScreen(
     workerId: String,
-    bandId: String,
+    bandId: String = "",
     vm: HistoryViewModel = viewModel(),
     onBack: () -> Unit
 ) {
@@ -35,14 +39,16 @@ fun ExposureHistoryScreen(
         vm.load(workerId, bandId)
     }
 
-    val history by vm.historyFlow.collectAsState()
-    val weekly  by vm.weeklyFlow.collectAsState()
-    val worker  by vm.worker.collectAsState()
+    val history   by vm.historyFlow.collectAsState()
+    val trendData by vm.trendFlow.collectAsState()
+    val worker    by vm.worker.collectAsState()
+    val band      by vm.band.collectAsState()
+    val timeRange by vm.selectedTimeRange.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Exposure History", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Exposure History & Trends", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -62,70 +68,103 @@ fun ExposureHistoryScreen(
                 .background(SurfaceBg)
                 .padding(padding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ── Worker summary header ─────────────────────────────────────────
+            // ── 1. Worker summary header ─────────────────────────────────────
             item {
                 worker?.let { w ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = NavyPrimary),
-                        shape  = RoundedCornerShape(16.dp)
+                        shape  = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(3.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(32.dp))
-                            Column {
+                            Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(w.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                                Text("${w.department} • ${w.shift} Shift", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodyMedium)
+                                Text("${w.department} • ${w.shift} Shift", color = Color.White.copy(alpha = 0.80f), style = MaterialTheme.typography.bodyMedium)
+                                band?.let { b ->
+                                    Text("Active Band: ${b.bandId} (${b.bandStatus})", color = Color.White.copy(alpha = 0.65f), style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // ── 7-day trend bar chart ─────────────────────────────────────────
+            // ── 2. Time Range Selector (7-Day vs 30-Day Monthly vs All) ─────
             item {
-                if (weekly.isNotEmpty()) {
-                    WeeklyTrendChart(weekly)
-                }
-            }
-
-            // ── Stats summary ─────────────────────────────────────────────────
-            item {
-                if (history.isNotEmpty()) {
-                    val total     = history.size
-                    val totalDose = history.sumOf { it.estimatedDose }
-                    val avgConf   = history.map { it.confidence }.average()
-                    val critCount = history.count { it.riskLevel == "CRITICAL" || it.riskLevel == "HIGH" }
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatChip(modifier = Modifier.weight(1f), label = "Total Scans", value = "$total",    color = NavyPrimary)
-                        StatChip(modifier = Modifier.weight(1f), label = "Total Dose",  value = "%.1f".format(totalDose), color = riskColor(if (totalDose > 20) "HIGH" else "SAFE"))
-                        StatChip(modifier = Modifier.weight(1f), label = "Alerts",      value = "$critCount", color = if (critCount > 0) StatusCritical else StatusSafe)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardWhite),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        HistoryViewModel.TimeRange.values().forEach { range ->
+                            val isSelected = timeRange == range
+                            Button(
+                                onClick = { vm.setTimeRange(range) },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) NavyPrimary else Color(0xFFF1F5F9),
+                                    contentColor = if (isSelected) Color.White else Color(0xFF475569)
+                                ),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(range.label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                            }
+                        }
                     }
                 }
             }
 
-            // ── Section title ─────────────────────────────────────────────────
+            // ── 3. Exposure Trend Chart ──────────────────────────────────────
+            item {
+                if (trendData.isNotEmpty()) {
+                    TrendBarChart(trendData, timeRange.label)
+                }
+            }
+
+            // ── 4. Stats Summary Grid ────────────────────────────────────────
+            item {
+                if (history.isNotEmpty()) {
+                    val totalScans = history.size
+                    val totalDose  = history.sumOf { it.estimatedDose }
+                    val critCount  = history.count { it.riskLevel == "CRITICAL" || it.riskLevel == "HIGH" }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatTile(modifier = Modifier.weight(1f), label = "Total Scans", value = "$totalScans", icon = Icons.Default.QrCodeScanner, color = NavyPrimary)
+                        StatTile(modifier = Modifier.weight(1f), label = "Lifetime Dose", value = "%.2f ppm·hr".format(totalDose), icon = Icons.Default.Assessment, color = AccentCyan)
+                        StatTile(modifier = Modifier.weight(1f), label = "Alert Events", value = "$critCount", icon = Icons.Default.Warning, color = if (critCount > 0) StatusCritical else StatusSafe)
+                    }
+                }
+            }
+
+            // ── 5. Chronological History Logs ────────────────────────────────
             item {
                 Text(
-                    "All Scan Records",
-                    style = MaterialTheme.typography.titleLarge,
+                    "Shift Exposure Records (${history.size})",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
             }
 
-            // ── History list ──────────────────────────────────────────────────
             if (history.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.SearchOff, null, tint = TextMuted, modifier = Modifier.size(48.dp))
-                            Text("No scan records yet", style = MaterialTheme.typography.bodyLarge, color = TextMuted)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CardWhite),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("No exposure records yet for this worker.", color = TextSecondary)
                         }
                     }
                 }
@@ -139,135 +178,100 @@ fun ExposureHistoryScreen(
 }
 
 @Composable
-private fun WeeklyTrendChart(data: List<ExposureHistoryEntity>) {
-    val maxDose = data.maxOfOrNull { it.estimatedDose }?.coerceAtLeast(1.0) ?: 1.0
-    val dayFmt  = SimpleDateFormat("EEE", Locale.getDefault())
-
+private fun TrendBarChart(data: List<ExposureHistoryEntity>, title: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = CardWhite),
-        shape  = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("7-Day Exposure Trend (ppm·hr)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("$title Exposure Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text("OSHA PEL = 10 ppm", style = MaterialTheme.typography.labelSmall, color = StatusCritical, fontWeight = FontWeight.Bold)
+            }
 
-            // Simple bar chart using Box height
+            val maxVal = maxOf(4.0, data.maxOfOrNull { it.estimatedDose } ?: 4.0)
+
             Row(
-                modifier = Modifier.fillMaxWidth().height(100.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.Bottom
             ) {
-                data.forEach { entry ->
-                    val fraction = (entry.estimatedDose / maxDose).toFloat().coerceIn(0.02f, 1f)
-                    val color    = riskColor(entry.riskLevel)
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom
-                    ) {
+                val displayItems = data.takeLast(14)
+                displayItems.forEach { item ->
+                    val fraction = (item.estimatedDose / maxVal).toFloat().coerceIn(0.05f, 1f)
+                    val barColor = riskColor(item.riskLevel)
+                    val dateLabel = SimpleDateFormat("dd/MM", Locale.getDefault()).format(Date(item.scanTime))
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                        Text("%.1f".format(item.estimatedDose), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = barColor)
+                        Spacer(Modifier.height(2.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .width(16.dp)
                                 .fillMaxHeight(fraction)
                                 .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(color)
+                                .background(barColor)
                         )
                         Spacer(Modifier.height(4.dp))
-                        Text(
-                            dayFmt.format(Date(entry.scanTime)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
-                        )
+                        Text(dateLabel, fontSize = 8.sp, color = TextSecondary)
                     }
                 }
             }
+        }
+    }
+}
 
-            // Legend
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf("SAFE" to StatusSafe, "MODERATE" to StatusModerate, "HIGH" to StatusHigh, "CRITICAL" to StatusCritical).forEach { (label, color) ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
-                        Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                    }
-                }
-            }
+@Composable
+private fun StatTile(modifier: Modifier = Modifier, label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = color)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
         }
     }
 }
 
 @Composable
 private fun HistoryRecordCard(record: ExposureHistoryEntity) {
-    val dateFmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-    val rColor  = riskColor(record.riskLevel)
-    val rBg     = riskBgColor(record.riskLevel)
+    val rColor = riskColor(record.riskLevel)
+    val rBgColor = riskBgColor(record.riskLevel)
+    val dateFmt = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(record.scanTime))
 
     Card(
-        colors    = CardDefaults.cardColors(containerColor = CardWhite),
-        shape     = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Risk indicator dot
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(rBg),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = when (record.riskLevel) {
-                        "SAFE"     -> Icons.Default.CheckCircle
-                        "MODERATE" -> Icons.Default.Warning
-                        "HIGH"     -> Icons.Default.Error
-                        else       -> Icons.Default.Dangerous
-                    },
-                    contentDescription = null,
-                    tint     = rColor,
-                    modifier = Modifier.size(24.dp)
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .background(rBgColor, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(record.riskLevel, color = rColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text("Band: ${record.bandId}", fontSize = 12.sp, color = TextMuted)
+                }
+                Text(dateFmt, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    dateFmt.format(Date(record.scanTime)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TextSecondary
-                )
-                Text(
-                    "${record.estimatedDose} ppm·hr  |  ${record.riskLevel}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = rColor
-                )
-                Text(
-                    "Confidence: ${(record.confidence * 100).toInt()}%  |  Temp: ${record.temperature}°C",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                Text("%.2f ppm·hr".format(record.estimatedDose), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, color = rColor)
+                Text("${(record.confidence * 100).toInt()}% conf", fontSize = 11.sp, color = TextSecondary)
             }
-        }
-    }
-}
-
-@Composable
-private fun StatChip(modifier: Modifier = Modifier, label: String, value: String, color: Color) {
-    Card(
-        modifier  = modifier,
-        colors    = CardDefaults.cardColors(containerColor = CardWhite),
-        shape     = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Column(
-            modifier  = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = color)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
         }
     }
 }

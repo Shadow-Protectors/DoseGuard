@@ -23,20 +23,28 @@ interface BandDao {
     fun getAllFlow(): Flow<List<BandEntity>>
 
     /**
-     * Update cumulative dose and last scan timestamp.
-     * Called after every successful exposure scan.
+     * Update cumulative dose directly from latest optical reading.
+     * Prevents double-counting since strip color measurement is intrinsically cumulative.
+     * Automatically transitions status to 'SATURATED' if limit reached.
      */
     @Query("""
         UPDATE bands
-        SET currentEstimatedDose = currentEstimatedDose + :additionalDose,
+        SET currentEstimatedDose = :latestCumulativeDose,
+            bandStatus = CASE 
+                WHEN :latestCumulativeDose >= maximumDose THEN 'SATURATED' 
+                ELSE bandStatus 
+            END,
             lastScanTime = :scanTime
         WHERE bandId = :bandId
     """)
-    suspend fun addDose(bandId: String, additionalDose: Double, scanTime: Long)
+    suspend fun updateDose(bandId: String, latestCumulativeDose: Double, scanTime: Long)
 
     @Query("UPDATE bands SET workerId = :workerId, bandStatus = 'ACTIVE' WHERE bandId = :bandId")
     suspend fun assignWorker(bandId: String, workerId: String)
 
     @Query("UPDATE bands SET bandStatus = :status WHERE bandId = :bandId")
     suspend fun updateStatus(bandId: String, status: String)
+
+    @Query("UPDATE bands SET bandStatus = 'REPLACED' WHERE bandId = :oldBandId")
+    suspend fun markBandReplaced(oldBandId: String)
 }

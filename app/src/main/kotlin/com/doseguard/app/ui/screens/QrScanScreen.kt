@@ -35,12 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.doseguard.app.ui.theme.NavyPrimary
-import com.doseguard.app.ui.theme.StatusCritical
-import com.doseguard.app.ui.theme.StatusSafe
-import com.doseguard.app.ui.theme.StatusModerate
-import com.doseguard.app.ui.theme.AccentCyan
-import com.doseguard.app.ui.theme.CardWhite
+import com.doseguard.app.ui.theme.*
 import com.doseguard.app.viewmodel.QrScanViewModel
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -52,6 +47,7 @@ fun QrScanScreen(
     vm: QrScanViewModel = viewModel(),
     onBandAssigned: (bandId: String, workerId: String) -> Unit,
     onNewBand: (bandId: String, qrData: String) -> Unit,
+    onBandInvalid: (bandId: String, reason: String, workerId: String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -83,6 +79,10 @@ fun QrScanScreen(
             }
             is QrScanViewModel.ScanState.NewBand -> {
                 onNewBand(s.bandId, s.qrData)
+                vm.reset()
+            }
+            is QrScanViewModel.ScanState.BandInvalid -> {
+                onBandInvalid(s.bandId, s.reason, s.workerId)
                 vm.reset()
             }
             else -> {}
@@ -148,14 +148,12 @@ fun QrScanScreen(
 
         // ── 2. Dark overlay with transparent reticle ─────────────────────────
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val reticleSize = size.width * 0.55f
+            val reticleSize = size.width * 0.52f
             val left = (size.width - reticleSize) / 2f
-            val top = size.height * 0.16f
+            val top = size.height * 0.12f
 
-            // Semi-transparent overlay
             drawRect(Color.Black.copy(alpha = 0.50f))
 
-            // Punch transparent hole for the reticle
             drawRoundRect(
                 color = Color.Transparent,
                 topLeft = Offset(left, top),
@@ -169,9 +167,9 @@ fun QrScanScreen(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val w = constraints.maxWidth.toFloat()
             val h = constraints.maxHeight.toFloat()
-            val reticleSize = w * 0.55f
+            val reticleSize = w * 0.52f
             val left = (w - reticleSize) / 2f
-            val top = h * 0.16f
+            val top = h * 0.12f
             val arm = reticleSize * 0.15f
 
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -199,7 +197,7 @@ fun QrScanScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -215,9 +213,10 @@ fun QrScanScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Point camera or use Demo Presets below",
-                        color = Color.White.copy(alpha = 0.75f),
-                        style = MaterialTheme.typography.bodySmall
+                        text = "Statutory Validity Gate Active",
+                        color = Color(0xFF00E5FF),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -227,13 +226,13 @@ fun QrScanScreen(
             }
         }
 
-        // ── 5. Bottom Interactive Demo & Status Panel ─────────────────────────
+        // ── 5. Bottom Interactive Demo & Validity Gate Panel ─────────────────
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(16.dp),
+                .padding(14.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = CardWhite.copy(alpha = 0.96f)),
             elevation = CardDefaults.cardElevation(8.dp)
@@ -241,9 +240,9 @@ fun QrScanScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (val s = state) {
                     is QrScanViewModel.ScanState.Processing -> {
@@ -258,7 +257,7 @@ fun QrScanScreen(
                                 color = NavyPrimary
                             )
                             Text(
-                                "Looking up band in local database…",
+                                "Evaluating band validity & lifetime dose…",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = NavyPrimary
@@ -289,33 +288,32 @@ fun QrScanScreen(
                     }
 
                     else -> {
-                        // Title / Header for Demo Quick Access
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Default.PlayCircle, null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.PlayCircle, null, tint = NavyPrimary, modifier = Modifier.size(18.dp))
                                 Text(
-                                    "Interactive Demo Presets",
+                                    "Demo Simulation Presets",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = NavyPrimary
                                 )
                             }
                             Text(
-                                "Tap to simulate scan",
+                                "Tap to evaluate gate",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF64748B)
                             )
                         }
 
-                        // ── Preset 1: Assigned Worker (Rajesh Kumar) ──────────
+                        // Preset 1: Valid Active Band (Rajesh Kumar)
                         Button(
                             onClick = { vm.onQrScanned("DG:BAND:WB-1001") },
-                            modifier = Modifier.fillMaxWidth().height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
                         ) {
                             Row(
@@ -323,19 +321,59 @@ fun QrScanScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                    Text("Simulate Assigned Band (WB-1001)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Text("Valid Band (WB-1001)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
-                                Icon(Icons.Default.ChevronRight, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Text("Active Profile ➔", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
                             }
                         }
 
-                        // ── Preset 2: New Unassigned Band -> Registration ──────
+                        // Preset 2: Expired Shelf-Life Band (Triggers Gate Block)
+                        Button(
+                            onClick = { vm.onQrScanned("DG:BAND:WB-EXP-01") },
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = StatusCritical)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Default.Block, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Text("Simulate EXPIRED Band (WB-EXP-01)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                Text("Gate Test ➔", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+                            }
+                        }
+
+                        // Preset 3: Saturated Band (50 ppm·hr Maximum Capacity)
+                        Button(
+                            onClick = { vm.onQrScanned("DG:BAND:WB-SAT-99") },
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = StatusModerate)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Default.Warning, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Text("Simulate SATURATED Band (WB-SAT-99)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                Text("Gate Test ➔", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+                            }
+                        }
+
+                        // Preset 4: Unassigned Band -> Registration / Replacement
                         OutlinedButton(
                             onClick = { vm.onQrScanned("DG:BAND:WB-9042") },
-                            modifier = Modifier.fillMaxWidth().height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
                         ) {
                             Row(
@@ -343,31 +381,11 @@ fun QrScanScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Default.PersonAdd, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
-                                    Text("Simulate New Band -> Register (WB-9042)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(Icons.Default.PersonAdd, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                                    Text("New Band -> Register / Replace (WB-9042)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                                 }
-                                Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF64748B), modifier = Modifier.size(18.dp))
-                            }
-                        }
-
-                        // ── Preset 3: Critical Hazard Band ─────────────────────
-                        OutlinedButton(
-                            onClick = { vm.onQrScanned("DG:BAND:WB-CRIT-99") },
-                            modifier = Modifier.fillMaxWidth().height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusCritical)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Default.Warning, null, tint = StatusCritical, modifier = Modifier.size(18.dp))
-                                    Text("Simulate Critical Band (WB-CRIT-99)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                }
-                                Icon(Icons.Default.ChevronRight, null, tint = StatusCritical, modifier = Modifier.size(18.dp))
+                                Text("Assign ➔", fontSize = 11.sp, color = TextSecondary)
                             }
                         }
                     }
@@ -389,7 +407,7 @@ fun QrScanScreen(
                         OutlinedTextField(
                             value = manualBandInput,
                             onValueChange = { manualBandInput = it },
-                            placeholder = { Text("e.g. WB-1001 or WB-9042") },
+                            placeholder = { Text("e.g. WB-1001, WB-EXP-01, WB-9042") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp)
