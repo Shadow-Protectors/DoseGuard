@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkerDetailScreen(
     workerId: String,
@@ -34,7 +36,6 @@ fun WorkerDetailScreen(
     onViewHistory: () -> Unit,
     onBack: () -> Unit
 ) {
-    val scope  = rememberCoroutineScope()
     var worker by remember { mutableStateOf<WorkerEntity?>(null) }
     var band   by remember { mutableStateOf<BandEntity?>(null) }
 
@@ -50,7 +51,7 @@ fun WorkerDetailScreen(
                 title = { Text("Worker Details", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -114,7 +115,7 @@ fun WorkerDetailScreen(
                     Column {
                         Text(w.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
                         Text(w.designation, color = Color.White.copy(alpha = 0.80f), style = MaterialTheme.typography.bodyMedium)
-                        Text("EMP: ${w.employeeId}", color = Color.White.copy(alpha = 0.65f), style = MaterialTheme.typography.labelLarge)
+                        Text("EMP ID: ${w.employeeId}", color = Color.White.copy(alpha = 0.70f), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -139,16 +140,16 @@ fun WorkerDetailScreen(
             }
 
             // ── Band summary card ──────────────────────────────────────────────
-            b?.let { band ->
-                val dosePercent   = (band.currentEstimatedDose / band.maximumDose).coerceIn(0.0, 1.0)
+            b?.let { bandData ->
+                val dosePercent   = (bandData.currentEstimatedDose / bandData.maximumDose).coerceIn(0.0, 1.0)
                 val doseColor     = when {
                     dosePercent < 0.4 -> StatusSafe
                     dosePercent < 0.7 -> StatusModerate
                     dosePercent < 0.9 -> StatusHigh
                     else              -> StatusCritical
                 }
-                val expiryFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(band.expiryDate))
-                val isExpired = System.currentTimeMillis() > band.expiryDate
+                val expiryFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(bandData.expiryDate))
+                val isExpired = System.currentTimeMillis() > bandData.expiryDate
 
                 Card(
                     shape  = RoundedCornerShape(16.dp),
@@ -158,20 +159,20 @@ fun WorkerDetailScreen(
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Default.Watch, contentDescription = null, tint = NavyPrimary)
-                            Text("Dosimeter Band", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text("Linked Dosimeter Band", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
                         }
                         HorizontalDivider()
-                        InfoRow(Icons.Default.QrCode, "Band ID", band.bandId)
-                        InfoRow(Icons.Default.EventAvailable, "Expiry",  "$expiryFmt${if (isExpired) " ⚠️ EXPIRED" else ""}")
-                        InfoRow(Icons.Default.Circle, "Status", band.bandStatus,
-                            valueColor = if (band.bandStatus == "ACTIVE") StatusSafe else StatusCritical)
+                        InfoRow(Icons.Default.QrCode, "Band ID", bandData.bandId)
+                        InfoRow(Icons.Default.EventAvailable, "Expiry Date",  "$expiryFmt${if (isExpired) " ⚠️ EXPIRED" else ""}")
+                        InfoRow(Icons.Default.Circle, "Band Status", bandData.bandStatus,
+                            valueColor = if (bandData.bandStatus == "ASSIGNED" || bandData.bandStatus == "ACTIVE") StatusSafe else StatusCritical)
 
                         // Dose progress bar
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Cumulative Dose", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
                                 Text(
-                                    "${band.currentEstimatedDose} / ${band.maximumDose} ppm·hr",
+                                    "${bandData.currentEstimatedDose} / ${bandData.maximumDose} ppm·hr",
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = doseColor
@@ -217,7 +218,7 @@ fun WorkerDetailScreen(
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan Band", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("Capture Strip", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
                 OutlinedButton(
                     onClick  = onViewHistory,
@@ -226,7 +227,7 @@ fun WorkerDetailScreen(
                 ) {
                     Icon(Icons.Default.History, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("History", fontWeight = FontWeight.SemiBold)
+                    Text("View History", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

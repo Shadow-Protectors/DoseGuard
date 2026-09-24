@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,15 +29,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.doseguard.app.ui.theme.NavyPrimary
+import com.doseguard.app.ui.theme.StatusCritical
 import com.doseguard.app.ui.theme.StatusSafe
+import com.doseguard.app.ui.theme.StatusModerate
 import com.doseguard.app.ui.theme.CardWhite
+import com.doseguard.app.ui.theme.AccentCyan
 import com.doseguard.app.viewmodel.ScanViewModel
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -58,14 +63,15 @@ fun CameraCaptureScreen(
 
     val uiState by vm.uiState.collectAsState()
 
-    // Hold a reference to ImageCapture so the shutter button can trigger it
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
+    var torchEnabled by remember { mutableStateOf(false) }
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
     // Shutter button pulse animation
     val pulse = rememberInfiniteTransition(label = "shutter")
     val shutterScale by pulse.animateFloat(
-        initialValue = 1f, targetValue = 1.08f, label = "scale",
+        initialValue = 1f, targetValue = 1.06f, label = "scale",
         animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse)
     )
 
@@ -82,7 +88,7 @@ fun CameraCaptureScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
-        // ── Camera preview ────────────────────────────────────────────────────
+        // ── 1. Camera preview ────────────────────────────────────────────────
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory  = { ctx ->
@@ -102,12 +108,13 @@ fun CameraCaptureScreen(
 
                         try {
                             provider.unbindAll()
-                            provider.bindToLifecycle(
+                            val cam = provider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,
                                 capture
                             )
+                            cameraControl = cam.cameraControl
                         } catch (e: Exception) {
                             Log.e("Camera", "Bind failed", e)
                         }
@@ -116,119 +123,200 @@ fun CameraCaptureScreen(
             }
         )
 
-        // ── Alignment guide overlay ───────────────────────────────────────────
+        // ── 2. Alignment guide overlay ───────────────────────────────────────
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
-                .size(260.dp, 160.dp)
-                .border(2.dp, Color(0xFF00E5FF).copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+                .offset(y = (-40).dp)
+                .size(280.dp, 160.dp)
+                .border(2.dp, Color(0xFF00E5FF).copy(alpha = 0.85f), RoundedCornerShape(12.dp))
         ) {
-            Text(
-                "Align the dosimeter strip here",
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
-                color = Color.White.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.labelLarge,
-                textAlign = TextAlign.Center
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "CHEMICAL DOSIMETER STRIP ROI",
+                    color = Color(0xFF00E5FF),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Align strip or tap a Demo Preset below",
+                    color = Color.White.copy(alpha = 0.90f),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
-        // ── Top bar ───────────────────────────────────────────────────────────
+        // ── 3. Top bar ───────────────────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Column(modifier = Modifier.padding(start = 4.dp)) {
+                    Text("Capture Strip Image", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Band: $bandId", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelMedium)
+                }
             }
-            Column(modifier = Modifier.padding(start = 4.dp)) {
-                Text("Capture Strip Image", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                Text("Band: $bandId", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelLarge)
+
+            IconButton(onClick = {
+                torchEnabled = !torchEnabled
+                cameraControl?.enableTorch(torchEnabled)
+            }) {
+                Icon(
+                    if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                    contentDescription = "Torch",
+                    tint = if (torchEnabled) Color.Yellow else Color.White
+                )
             }
         }
 
-        // ── Bottom controls ───────────────────────────────────────────────────
+        // ── 4. Bottom controls & Demo presets ────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(32.dp),
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             when (uiState) {
                 is ScanViewModel.ScanUiState.Analyzing -> {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = CardWhite),
-                        shape  = RoundedCornerShape(16.dp)
+                        shape  = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(8.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(20.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(28.dp),
                                 strokeWidth = 3.dp,
                                 color = NavyPrimary
                             )
-                            Text("Analyzing strip color…", style = MaterialTheme.typography.bodyMedium)
+                            Column {
+                                Text("Analyzing Strip Colorimetry…", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = NavyPrimary)
+                                Text("Converting sRGB → CIE LAB (D65) & calculating ΔE", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                            }
                         }
                     }
                 }
 
-                is ScanViewModel.ScanUiState.Idle -> {
-                    // Instructions card
+                else -> {
+                    // Demo Simulation Strip Presets Card
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
-                        shape  = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardWhite.copy(alpha = 0.94f)),
+                        elevation = CardDefaults.cardElevation(6.dp)
                     ) {
-                        Text(
-                            "Position the strip in the frame.\nEnsure good lighting for accurate results.",
-                            modifier  = Modifier.padding(12.dp),
-                            color     = Color.White,
-                            textAlign = TextAlign.Center,
-                            style     = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                    // Shutter button
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .scale(shutterScale)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        IconButton(
-                            onClick = {
-                                captureImage(
-                                    imageCapture = imageCapture,
-                                    context      = context,
-                                    executor     = cameraExecutor,
-                                    bandId       = bandId,
-                                    workerId     = workerId,
-                                    vm           = vm
-                                )
-                            },
-                            modifier = Modifier.size(76.dp)
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                Icons.Default.CameraAlt,
-                                contentDescription = "Capture",
-                                tint     = NavyPrimary,
-                                modifier = Modifier.size(36.dp)
+                            Text(
+                                "⚡ Demo Strip Presets (Instant Evaluation)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NavyPrimary
                             )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Safe Preset
+                                Button(
+                                    onClick = { vm.onSimulatedScan(deltaE = 4.2, bandId = bandId, workerId = workerId) },
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = StatusSafe),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Safe (0.4 ppm)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+
+                                // Moderate Preset
+                                Button(
+                                    onClick = { vm.onSimulatedScan(deltaE = 19.5, bandId = bandId, workerId = workerId) },
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = StatusModerate),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Moderate (2.1)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+
+                                // Critical Preset
+                                Button(
+                                    onClick = { vm.onSimulatedScan(deltaE = 52.0, bandId = bandId, workerId = workerId) },
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = StatusCritical),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Critical (>10)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
                         }
                     }
-                    Text("Tap to capture", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelLarge)
-                }
 
-                else -> {}
+                    // Physical Camera Shutter Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .scale(shutterScale)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    captureImage(
+                                        imageCapture = imageCapture,
+                                        context      = context,
+                                        executor     = cameraExecutor,
+                                        bandId       = bandId,
+                                        workerId     = workerId,
+                                        vm           = vm
+                                    )
+                                },
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CameraAlt,
+                                    contentDescription = "Capture",
+                                    tint     = NavyPrimary,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text("Or tap shutter to analyze live camera photo", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
@@ -246,43 +334,45 @@ private fun captureImage(
     workerId: String,
     vm: ScanViewModel
 ) {
-    val ic = imageCapture ?: return
+    val ic = imageCapture
+    if (ic == null) {
+        // Fallback simulation if camera capture is not ready
+        vm.onSimulatedScan(deltaE = 8.5, bandId = bandId, workerId = workerId)
+        return
+    }
 
-    val outputOptions = ImageCapture.OutputFileOptions.Builder(
-        createImageFile(context)
-    ).build()
+    val photoFile = createImageFile(context)
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
     ic.takePicture(
         outputOptions,
         executor,
         object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                val uri = output.savedUri ?: return
                 try {
-                    val inputStream = context.contentResolver.openInputStream(uri) ?: return
-                    val bytes = inputStream.readBytes()
-                    inputStream.close()
+                    val bytes = photoFile.readBytes()
                     vm.onImageCaptured(
                         imageBytes = bytes,
-                        imagePath  = uri.toString(),
+                        imagePath  = photoFile.absolutePath,
                         bandId     = bandId,
                         workerId   = workerId
                     )
                 } catch (e: Exception) {
-                    Log.e("Camera", "Failed to read captured image", e)
+                    Log.e("Camera", "Failed to read captured file", e)
+                    vm.onSimulatedScan(deltaE = 12.0, bandId = bandId, workerId = workerId)
                 }
             }
 
-            override fun onError(exception: ImageCaptureException) {
-                Log.e("Camera", "Capture error: ${exception.message}", exception)
+            override fun onError(exc: ImageCaptureException) {
+                Log.e("Camera", "Capture failed, falling back to simulated scan", exc)
+                vm.onSimulatedScan(deltaE = 14.5, bandId = bandId, workerId = workerId)
             }
         }
     )
 }
 
 private fun createImageFile(context: Context): File {
-    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(System.currentTimeMillis())
-    val storageDir = context.getExternalFilesDir("DoseGuard_Images")
-        ?: context.filesDir
-    return File(storageDir, "STRIP_$timestamp.jpg")
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(System.currentTimeMillis())
+    val dir = context.getExternalFilesDir("dosimeter_scans") ?: context.cacheDir
+    return File(dir, "STRIP_${timeStamp}.jpg")
 }

@@ -6,13 +6,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -22,6 +22,7 @@ import com.doseguard.app.imageprocessing.ExposureEstimator
 import com.doseguard.app.ui.theme.*
 import com.doseguard.app.viewmodel.ScanViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanResultScreen(
     bandId: String,
@@ -48,25 +49,25 @@ fun ScanResultScreen(
     val rBgColor = riskBgColor(r.riskLevel)
     val isCritical = r.riskLevel == "CRITICAL" || r.riskLevel == "HIGH"
 
-    // Auto-navigate to alert if threshold breached
-    LaunchedEffect(r.riskLevel) {
-        if (isCritical) onShowAlert()
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scan Result", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Dosimeter Scan Result", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = NavyPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onViewHistory) {
+                        Icon(Icons.Default.History, contentDescription = "History", tint = Color.White)
+                    }
+                }
             )
         }
     ) { padding ->
@@ -77,16 +78,16 @@ fun ScanResultScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ── Risk banner ───────────────────────────────────────────────────
+            // ── 1. Risk banner ───────────────────────────────────────────────
             Card(
                 colors    = CardDefaults.cardColors(containerColor = rBgColor),
                 shape     = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(2.dp)
+                elevation = CardDefaults.cardElevation(3.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -102,21 +103,35 @@ fun ScanResultScreen(
                         modifier = Modifier.size(48.dp)
                     )
                     Text(
-                        text  = r.riskLevel,
+                        text  = "${r.riskLevel} STATUS",
                         color = rColor,
-                        style = MaterialTheme.typography.displayLarge,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
                         text  = r.actionRequired,
-                        color = rColor.copy(alpha = 0.85f),
+                        color = rColor.copy(alpha = 0.90f),
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
                 }
             }
 
-            // ── Key metrics grid ──────────────────────────────────────────────
+            // ── 2. Alert Trigger Action if Critical / High ───────────────────
+            if (isCritical) {
+                Button(
+                    onClick = onShowAlert,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusCritical)
+                ) {
+                    Icon(Icons.Default.Emergency, null, tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("View Safety Alert & Emergency SOP", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+
+            // ── 3. Key metrics grid ──────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
                     modifier = Modifier.weight(1f),
@@ -136,7 +151,7 @@ fun ScanResultScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
                     modifier = Modifier.weight(1f),
-                    label    = "Uncertainty",
+                    label    = "Uncertainty (σ)",
                     value    = "±${r.uncertaintyPpmHr}",
                     unit     = "ppm·hr",
                     color    = TextSecondary
@@ -144,52 +159,48 @@ fun ScanResultScreen(
                 MetricCard(
                     modifier = Modifier.weight(1f),
                     label    = "Confidence",
-                    value    = "${(r.confidence * 100).toInt()}",
-                    unit     = "%",
+                    value    = "${(r.confidence * 100).toInt()}%",
+                    unit     = "Model certainty",
                     color    = TextSecondary
                 )
             }
 
-            // ── Debug / model info card ───────────────────────────────────────
+            // ── 4. Analysis details ──────────────────────────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardWhite),
-                shape  = RoundedCornerShape(12.dp)
+                shape  = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Analysis Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text("Chemical & Optical Model Parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                     HorizontalDivider()
-                    ResultRow("Raw ΔE", "${r.rawDeltaE}")
+                    ResultRow("CIE ΔE (vs Pristine Cream)", "${r.rawDeltaE}")
                     ResultRow("Band ID", bandId)
                     ResultRow("Worker", worker?.name ?: workerId)
+                    ResultRow("Calculation Model", "Kinetic Saturation Model (1st Order)")
                     if (r.debugInfo.isNotBlank()) {
-                        ResultRow("Debug", r.debugInfo)
+                        ResultRow("Model Debug", r.debugInfo)
                     }
-                    // Mark where AI model output will appear
-                    Text(
-                        "// [AI_INTEGRATION_POINT]: TFLite model output will replace rule-based ΔE here",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
                 }
             }
 
-            // ── PEL reference card ────────────────────────────────────────────
+            // ── 5. Statutory OSHA Reference ──────────────────────────────────
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
                 shape  = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("OSHA H₂S Exposure Limits", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = NavyPrimary)
-                    Text("PEL: 10 ppm (8-hr TWA)  |  STEL: 15 ppm  |  IDLH: 50 ppm",
-                        style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                    Text("OSHA / DGMS Statutory Exposure Limits", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = NavyPrimary)
+                    Text("• Action Level: 1.0 ppm TWA  |  PEL Limit: 10.0 ppm TWA\n• STEL Limit: 15.0 ppm  |  IDLH Evacuation: 50.0 ppm",
+                        style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
             }
 
-            // ── Action buttons ────────────────────────────────────────────────
+            // ── 6. Navigation Actions ────────────────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
                     onClick  = onScanAgain,
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(1f).height(50.dp),
                     shape    = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null)
@@ -198,11 +209,11 @@ fun ScanResultScreen(
                 }
                 Button(
                     onClick  = onViewHistory,
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    modifier = Modifier.weight(1f).height(50.dp),
                     shape    = RoundedCornerShape(12.dp),
                     colors   = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
                 ) {
-                    Icon(Icons.Default.History, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.ShowChart, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
                     Text("View History", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
@@ -226,7 +237,7 @@ private fun MetricCard(modifier: Modifier = Modifier, label: String, value: Stri
             Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted)
             Spacer(Modifier.height(4.dp))
             Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = color)
-            Text(unit,  style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.7f))
+            Text(unit,  style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.8f))
         }
     }
 }

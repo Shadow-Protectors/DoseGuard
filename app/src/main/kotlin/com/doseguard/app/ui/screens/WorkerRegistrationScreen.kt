@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,12 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.doseguard.app.ui.theme.*
 import com.doseguard.app.viewmodel.WorkerRegistrationViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkerRegistrationScreen(
     bandId: String,
@@ -58,7 +60,7 @@ fun WorkerRegistrationScreen(
                 title = { Text("Register Worker", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -96,7 +98,35 @@ fun WorkerRegistrationScreen(
                 }
             }
 
-            Text("Worker Details", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+            // Section header with Quick Fill Demo Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Worker Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Button(
+                    onClick = {
+                        vm.name.value = "Arun Varma"
+                        vm.employeeId.value = "EMP-8842"
+                        vm.department.value = "Hydrotreater Sweetening Unit"
+                        vm.designation.value = "Process Technician"
+                        vm.shift.value = "Morning"
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Bolt, null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Demo Auto-Fill", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
 
             // ── Form fields ───────────────────────────────────────────────────
             OutlinedTextField(
@@ -159,7 +189,7 @@ fun WorkerRegistrationScreen(
                     label = { Text("Shift") },
                     leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = shiftExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
                     shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
@@ -168,7 +198,7 @@ fun WorkerRegistrationScreen(
                 ) {
                     shiftOptions.forEach { option ->
                         DropdownMenuItem(
-                            text  = { Text(option) },
+                            text = { Text(option) },
                             onClick = {
                                 vm.shift.value = option
                                 shiftExpanded = false
@@ -192,7 +222,7 @@ fun WorkerRegistrationScreen(
                 if (isSaving) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Saving…", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("Saving to Database…", color = Color.White, fontWeight = FontWeight.SemiBold)
                 } else {
                     Icon(Icons.Default.Save, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(8.dp))
