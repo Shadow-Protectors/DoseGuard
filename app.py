@@ -29,8 +29,8 @@ from src.reports.dgms_exporter import generate_dgms_form_iv_pdf
 
 # Page Configuration
 st.set_page_config(
-    page_title="VigilSulfide Mobile | SIH 26118",
-    page_icon="🛡️",
+    page_title="DoseGuard Mobile | SIH 26118",
+    page_icon="logo.png" if os.path.exists("logo.png") else "🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -97,8 +97,11 @@ st.markdown(f"""
 
 # Navigation Sidebar
 with st.sidebar:
-    st.image("https://img.icons8.com/isometric-line/100/shield-warning.png", width=60)
-    st.title("VigilSulfide Mobile")
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=120)
+    else:
+        st.image("https://img.icons8.com/isometric-line/100/shield-warning.png", width=60)
+    st.title("DoseGuard Mobile")
     st.caption("SIH 26118 H2S Dosimeter App")
     
     st.divider()
@@ -137,8 +140,10 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 
 def render_splash():
-    st.markdown("<div class='mobile-frame' style='text-align: center; padding: 60px 20px;'>", unsafe_allow_html=True)
-    st.title("🛡️ VigilSulfide")
+    st.markdown("<div class='mobile-frame' style='text-align: center; padding: 40px 20px;'>", unsafe_allow_html=True)
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=160)
+    st.title("DOSEGUARD")
     st.subheader("Passive H₂S Dosimeter Platform")
     st.caption("SIH 26118 • MRPL Ministry of Petroleum")
     st.write("---")
@@ -151,7 +156,7 @@ def render_splash():
     st.markdown("</div>", unsafe_allow_html=True)
 
 def render_onboarding():
-    st.title("Welcome to VigilSulfide")
+    st.title("Welcome to DoseGuard")
     st.caption("Step-by-step onboarding walkthrough")
     
     col1, col2, col3 = st.columns(3)
