@@ -7,6 +7,20 @@ package com.doseguard.app.navigation
 sealed class Screen(val route: String) {
     object Splash          : Screen("splash")
     object QrScan          : Screen("qr_scan")
+
+    /** Screen 1 — worker identification (entry point of the assignment flow). */
+    object BandAssignment  : Screen("band_assignment")
+
+    /** Screen 2 — full-screen band QR scanner for the identified worker. */
+    object BandScanAssign  : Screen("band_assignment/scan/{workerId}") {
+        fun createRoute(workerId: String) = "band_assignment/scan/$workerId"
+    }
+
+    /** Screen 3 — animated assignment confirmation. */
+    object AssignmentSuccess : Screen("band_assignment/success/{workerId}/{bandId}/{assignedTime}") {
+        fun createRoute(workerId: String, bandId: String, assignedTime: Long) =
+            "band_assignment/success/$workerId/$bandId/$assignedTime"
+    }
     object WorkerRegistration : Screen("worker_registration/{bandId}/{qrData}") {
         fun createRoute(bandId: String, qrData: String) =
             "worker_registration/$bandId/${android.net.Uri.encode(qrData)}"

@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.doseguard.app.model.AlertEntity
+import com.doseguard.app.model.BandAssignmentEntity
 import com.doseguard.app.model.BandEntity
 import com.doseguard.app.model.ExposureHistoryEntity
 import com.doseguard.app.model.WorkerEntity
@@ -22,16 +23,18 @@ import java.util.UUID
     entities = [
         WorkerEntity::class,
         BandEntity::class,
+        BandAssignmentEntity::class,
         ExposureHistoryEntity::class,
         AlertEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun workerDao(): WorkerDao
     abstract fun bandDao(): BandDao
+    abstract fun bandAssignmentDao(): BandAssignmentDao
     abstract fun exposureHistoryDao(): ExposureHistoryDao
     abstract fun alertDao(): AlertDao
 
@@ -44,7 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "doseguard_v2.db"
+                    "doseguard_v3.db"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(object : RoomDatabase.Callback() {
@@ -170,6 +173,60 @@ abstract class AppDatabase : RoomDatabase() {
                         maximumDose = 50.0,
                         currentEstimatedDose = 42.5,
                         lastScanTime = now - 1800_000L
+                    )
+                )
+            }
+
+            // Industry worker directory — searchable by Employee ID in Band Assignment
+            val directory = listOf(
+                WorkerEntity("W-1003", "EMP02345", "John Mathew", "Gas Processing", "Field Technician", "Morning", "ACTIVE", now - (60 * dayMs)),
+                WorkerEntity("W-1004", "EMP02346", "Anita Desai", "Sour Water Stripper", "Process Engineer", "Evening", "ACTIVE", now - (45 * dayMs)),
+                WorkerEntity("W-1005", "EMP02347", "Mohammed Farid", "Amine Treating Unit", "Maintenance Fitter", "Night", "ACTIVE", now - (20 * dayMs)),
+                WorkerEntity("W-1006", "EMP02348", "Sara Thomas", "HSE Department", "Safety Officer", "Morning", "ACTIVE", now - (10 * dayMs))
+            )
+            for (w in directory) {
+                if (workerDao.getById(w.workerId) == null) workerDao.insert(w)
+            }
+
+            // Available (unassigned) bands ready to be issued
+            val availableBands = listOf("BAND-001285", "BAND-001286", "BAND-001287", "BAND-001288")
+            for (id in availableBands) {
+                if (bandDao.getById(id) == null) {
+                    bandDao.insert(
+                        BandEntity(
+                            bandId = id,
+                            workerId = "",
+                            qrData = "DG:BAND:$id",
+                            issueDate = now,
+                            expiryDate = now + (45 * dayMs),
+                            bandStatus = "UNASSIGNED"
+                        )
+                    )
+                }
+            }
+
+            // An already-assigned band and an expired band, for validation demos
+            if (bandDao.getById("BAND-001290") == null) {
+                bandDao.insert(
+                    BandEntity(
+                        bandId = "BAND-001290",
+                        workerId = "W-1004",
+                        qrData = "DG:BAND:BAND-001290",
+                        issueDate = now - (3 * dayMs),
+                        expiryDate = now + (27 * dayMs),
+                        bandStatus = "ACTIVE"
+                    )
+                )
+            }
+            if (bandDao.getById("BAND-001291") == null) {
+                bandDao.insert(
+                    BandEntity(
+                        bandId = "BAND-001291",
+                        workerId = "",
+                        qrData = "DG:BAND:BAND-001291",
+                        issueDate = now - (60 * dayMs),
+                        expiryDate = now - (5 * dayMs),
+                        bandStatus = "EXPIRED"
                     )
                 )
             }

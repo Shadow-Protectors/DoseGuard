@@ -42,6 +42,16 @@ interface BandDao {
     @Query("UPDATE bands SET workerId = :workerId, bandStatus = 'ACTIVE' WHERE bandId = :bandId")
     suspend fun assignWorker(bandId: String, workerId: String)
 
+    /**
+     * Worker ↔ Band mapping used by the Band Assignment flow.
+     * Sets the owning worker, activates the band and stamps the issue date.
+     */
+    @Query("UPDATE bands SET workerId = :workerId, bandStatus = 'ACTIVE', issueDate = :issueDate WHERE bandId = :bandId")
+    suspend fun assignWorkerWithIssueDate(bandId: String, workerId: String, issueDate: Long)
+
+    @Query("SELECT * FROM bands WHERE workerId = '' OR bandStatus = 'UNASSIGNED' ORDER BY issueDate DESC")
+    suspend fun getUnassigned(): List<BandEntity>
+
     @Query("UPDATE bands SET bandStatus = :status WHERE bandId = :bandId")
     suspend fun updateStatus(bandId: String, status: String)
 

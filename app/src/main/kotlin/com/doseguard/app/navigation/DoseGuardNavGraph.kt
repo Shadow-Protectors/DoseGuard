@@ -20,6 +20,9 @@ fun DoseGuardNavGraph(
     repository: DoseGuardRepository
 ) {
     val scanVm: ScanViewModel = viewModel()
+    // Shared across the three band-assignment screens so the identified worker,
+    // the validated band and the confirmation state survive navigation.
+    val assignVm: BandAssignmentViewModel = viewModel()
 
     NavHost(
         navController    = navController,
@@ -30,7 +33,7 @@ fun DoseGuardNavGraph(
         composable(Screen.Splash.route) {
             SplashScreen(
                 onFinished = {
-                    navController.navigate(Screen.QrScan.route) {
+                    navController.navigate(Screen.BandAssignment.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }
@@ -52,6 +55,78 @@ fun DoseGuardNavGraph(
                     navController.navigate(Screen.BandInvalid.createRoute(bandId, reason, workerId))
                 },
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── 2b. Band Assignment — Screen 1: Worker Identification ────────────
+        composable(Screen.BandAssignment.route) {
+            LaunchedEffect(Unit) { assignVm.resetBandScan() }
+            BandAssignmentScreen(
+                vm = assignVm,
+                onAssignBand = { workerId ->
+                    assignVm.resetBandScan()
+                    navController.navigate(Screen.BandScanAssign.createRoute(workerId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── 2c. Band Assignment — Screen 2: Scan Band QR ──────────────────────
+        composable(
+            route = Screen.BandScanAssign.route,
+            arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+        ) { backStack ->
+            val workerId = backStack.arguments?.getString("workerId") ?: ""
+            val lookup by assignVm.workerLookup.collectAsState()
+            LaunchedEffect(workerId) { assignVm.ensureWorker(workerId) }
+
+            BandScanAssignScreen(
+                worker = (lookup as? BandAssignmentViewModel.WorkerLookup.Found)?.worker,
+                vm     = assignVm,
+                onAssigned = { assignedWorkerId, bandId, assignedTime ->
+                    navController.navigate(
+                        Screen.AssignmentSuccess.createRoute(assignedWorkerId, bandId, assignedTime)
+                    ) {
+                        popUpTo(Screen.BandScanAssign.route) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── 2d. Band Assignment — Screen 3: Success ───────────────────────────
+        composable(
+            route = Screen.AssignmentSuccess.route,
+            arguments = listOf(
+                navArgument("workerId")     { type = NavType.StringType },
+                navArgument("bandId")       { type = NavType.StringType },
+                navArgument("assignedTime") { type = NavType.LongType }
+            )
+        ) { backStack ->
+            val workerId     = backStack.arguments?.getString("workerId") ?: ""
+            val bandId       = backStack.arguments?.getString("bandId") ?: ""
+            val assignedTime = backStack.arguments?.getLong("assignedTime") ?: System.currentTimeMillis()
+            val lookup by assignVm.workerLookup.collectAsState()
+            LaunchedEffect(workerId) { assignVm.ensureWorker(workerId) }
+            val worker = (lookup as? BandAssignmentViewModel.WorkerLookup.Found)?.worker
+
+            AssignmentSuccessScreen(
+                employeeId   = worker?.employeeId ?: workerId,
+                workerName   = worker?.name ?: "",
+                bandId       = bandId,
+                assignedTime = assignedTime,
+                onDone = {
+                    navController.navigate(Screen.BandAssignment.route) {
+                        popUpTo(Screen.BandAssignment.route) { inclusive = true }
+                    }
+                    assignVm.reset()
+                },
+                onStartScan = {
+                    navController.navigate(Screen.WorkerDetail.createRoute(workerId, bandId)) {
+                        popUpTo(Screen.BandAssignment.route)
+                    }
+                    assignVm.resetBandScan()
+                }
             )
         }
 

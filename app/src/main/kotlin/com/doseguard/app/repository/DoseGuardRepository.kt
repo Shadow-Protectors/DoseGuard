@@ -5,6 +5,7 @@ import com.doseguard.app.database.AppDatabase
 import com.doseguard.app.imageprocessing.ExposureEstimator
 import com.doseguard.app.imageprocessing.KineticColorEstimator
 import com.doseguard.app.model.AlertEntity
+import com.doseguard.app.model.BandAssignmentEntity
 import com.doseguard.app.model.BandEntity
 import com.doseguard.app.model.ExposureHistoryEntity
 import com.doseguard.app.model.WorkerEntity
@@ -29,10 +30,23 @@ class DoseGuardRepository(
     private val bandDao = db.bandDao()
     private val historyDao = db.exposureHistoryDao()
     private val alertDao = db.alertDao()
+    private val assignmentDao = db.bandAssignmentDao()
 
     sealed class BandValidity {
         object Valid : BandValidity()
         data class Invalid(val reason: String, val message: String) : BandValidity()
+    }
+
+    /** Result of validating a scanned band before it can be issued to a worker. */
+    sealed class AssignmentCheck {
+        /** Band exists, is unassigned, in date, and ready to issue. */
+        data class Available(val band: BandEntity) : AssignmentCheck()
+        /** Band is already worn by someone (holder is null if the worker record is missing). */
+        data class AlreadyAssigned(val band: BandEntity, val holder: WorkerEntity?) : AssignmentCheck()
+        data class Expired(val band: BandEntity) : AssignmentCheck()
+        data class Saturated(val band: BandEntity) : AssignmentCheck()
+        data class Retired(val band: BandEntity) : AssignmentCheck()
+        data class NotFound(val bandId: String) : AssignmentCheck()
     }
 
     // ── Reactive flows for UI ────────────────────────────────────────────────────
@@ -58,6 +72,38 @@ class DoseGuardRepository(
         workerDao.getAll()
     }
 
+    /**
+     * Industry-database lookup used by the Band Assignment flow.
+     * Accepts an internal worker id, an employee number, or a raw employee-card
+     * QR / barcode payload such as "DG:EMP:EMP02345" or "…/worker/EMP02345".
+     */
+    suspend fun findWorker(identifier: String): WorkerEntity? = withContext(Dispatchers.IO) {
+        val cleaned = parseWorkerIdentifier(identifier)
+        if (cleaned.isBlank()) null else workerDao.findByIdentifier(cleaned)
+    }
+
+    fun parseWorkerIdentifier(raw: String): String {
+        val t = raw.trim()
+        val u = t.uppercase()
+        val prefixes = listOf("DG:EMP:", "DG:WORKER:", "EMPID:", "/WORKER/")
+        for (p in prefixes) {
+            val i = u.lastIndexOf(p)
+            if (i >= 0) return t.substring(i + p.length).trim()
+        }
+        return t
+    }
+
+    fun parseBandIdentifier(raw: String): String {
+        val t = raw.trim()
+        val u = t.uppercase()
+        val prefixes = listOf("DG:BAND:", "/BAND/")
+        for (p in prefixes) {
+            val i = u.lastIndexOf(p)
+            if (i >= 0) return t.substring(i + p.length).trim()
+        }
+        return t
+    }
+
     // ── Band operations & Validity Gate ──────────────────────────────────────────
 
     suspend fun getBandById(bandId: String): BandEntity? = withContext(Dispatchers.IO) {
@@ -73,6 +119,75 @@ class DoseGuardRepository(
     suspend fun assignBandToWorker(bandId: String, workerId: String) = withContext(Dispatchers.IO) {
         bandDao.assignWorker(bandId, workerId)
     }
+
+    // ── Band Assignment flow (Worker → Band mapping) ─────────────────────────────
+
+    /**
+     * Validate a scanned band QR payload before it is issued to a worker.
+     * Checks existence, current assignment, shelf-life expiry and saturation.
+     */
+    suspend fun checkBandForAssignment(rawQr: String): AssignmentCheck = withContext(Dispatchers.IO) {
+        val bandId = parseBandIdentifier(rawQr)
+        val band = bandDao.getById(bandId) ?: return@withContext AssignmentCheck.NotFound(bandId)
+        val now = System.currentTimeMillis()
+
+        if (band.bandStatus == "REPLACED") return@withContext AssignmentCheck.Retired(band)
+
+        if (band.bandStatus == "EXPIRED" || now > band.expiryDate) {
+            bandDao.updateStatus(band.bandId, "EXPIRED")
+            return@withContext AssignmentCheck.Expired(band.copy(bandStatus = "EXPIRED"))
+        }
+
+        if (band.bandStatus == "SATURATED" || band.currentEstimatedDose >= band.maximumDose) {
+            bandDao.updateStatus(band.bandId, "SATURATED")
+            return@withContext AssignmentCheck.Saturated(band.copy(bandStatus = "SATURATED"))
+        }
+
+        if (band.workerId.isNotBlank()) {
+            val holder = workerDao.getById(band.workerId)
+            return@withContext AssignmentCheck.AlreadyAssigned(band, holder)
+        }
+
+        AssignmentCheck.Available(band)
+    }
+
+    /**
+     * Commit the Worker ↔ Band mapping.
+     *
+     *  bands            → workerId = worker, bandStatus = ACTIVE, issueDate = now
+     *  band_assignments → new row (workerId, bandId, assignedTime)
+     *
+     * Any previously open assignment for either side is released first so a worker
+     * only ever wears one live band.
+     */
+    suspend fun assignBand(workerId: String, bandId: String, assignedBy: String = "OPERATOR"): BandAssignmentEntity =
+        withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+
+            assignmentDao.releaseForWorker(workerId, now)
+            assignmentDao.releaseForBand(bandId, now)
+
+            bandDao.assignWorkerWithIssueDate(bandId, workerId, now)
+
+            val record = BandAssignmentEntity(
+                assignmentId = UUID.randomUUID().toString(),
+                workerId = workerId,
+                bandId = bandId,
+                assignedTime = now,
+                assignedBy = assignedBy,
+                status = "ACTIVE"
+            )
+            assignmentDao.insert(record)
+            record
+        }
+
+    suspend fun getActiveAssignmentForWorker(workerId: String): BandAssignmentEntity? =
+        withContext(Dispatchers.IO) { assignmentDao.getActiveForWorker(workerId) }
+
+    fun getAssignmentsForWorkerFlow(workerId: String): Flow<List<BandAssignmentEntity>> =
+        assignmentDao.getByWorkerFlow(workerId)
+
+    val allAssignmentsFlow: Flow<List<BandAssignmentEntity>> = assignmentDao.getAllFlow()
 
     /**
      * Replacement-Band Flow:

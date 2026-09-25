@@ -13,6 +13,22 @@ interface WorkerDao {
     @Query("SELECT * FROM workers WHERE workerId = :workerId")
     suspend fun getById(workerId: String): WorkerEntity?
 
+    @Query("SELECT * FROM workers WHERE UPPER(REPLACE(employeeId, '-', '')) = UPPER(REPLACE(:employeeId, '-', '')) LIMIT 1")
+    suspend fun getByEmployeeId(employeeId: String): WorkerEntity?
+
+    /**
+     * Industry-database style lookup: matches either the internal workerId or the
+     * company employee number, tolerant of case and dash formatting
+     * (e.g. "emp02345", "EMP-02345" and "EMP02345" all match).
+     */
+    @Query("""
+        SELECT * FROM workers
+        WHERE UPPER(REPLACE(workerId, '-', ''))   = UPPER(REPLACE(:identifier, '-', ''))
+           OR UPPER(REPLACE(employeeId, '-', '')) = UPPER(REPLACE(:identifier, '-', ''))
+        LIMIT 1
+    """)
+    suspend fun findByIdentifier(identifier: String): WorkerEntity?
+
     @Query("SELECT * FROM workers ORDER BY createdAt DESC")
     suspend fun getAll(): List<WorkerEntity>
 
