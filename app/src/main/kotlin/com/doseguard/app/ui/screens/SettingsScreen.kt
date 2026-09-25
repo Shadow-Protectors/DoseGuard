@@ -46,7 +46,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("DoseGuard v2.0", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     Text("H₂S Passive Dosimeter System", color = Color.White.copy(alpha = 0.80f), style = MaterialTheme.typography.bodyMedium)
-                    Text("SIH 2024 • Problem Statement 26118", color = Color.White.copy(alpha = 0.60f), style = MaterialTheme.typography.labelLarge)
+                    Text("SIH 2026 • Problem Statement 26118", color = Color.White.copy(alpha = 0.60f), style = MaterialTheme.typography.labelLarge)
                 }
             }
 

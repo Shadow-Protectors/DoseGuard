@@ -1,27 +1,19 @@
 package com.doseguard.app.repository
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.doseguard.app.database.AppDatabase
 import com.doseguard.app.imageprocessing.ExposureEstimator
 import com.doseguard.app.imageprocessing.KineticColorEstimator
-import com.doseguard.app.model.AlertEntity
-import com.doseguard.app.model.BandEntity
-import com.doseguard.app.model.ExposureHistoryEntity
-import com.doseguard.app.model.WorkerEntity
+import com.doseguard.app.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * DoseGuardRepository — single source of truth for all app data.
- *
- * Mediates between ViewModels and Room DAOs.
- * The exposureEstimator is injected via constructor so it can be swapped for testing
- * or for the final TFLite-backed implementation.
- *
- * [AI_INTEGRATION_POINT] — pass TFLiteEstimator() here instead of KineticColorEstimator()
- *   when the real model is available.
+ * DoseGuardRepository — single source of truth for all worker directory, dosimeter bands,
+ * assignments, and exposure metrics.
  */
 class DoseGuardRepository(
     context: Context,
@@ -31,13 +23,20 @@ class DoseGuardRepository(
     private val db = AppDatabase.getInstance(context)
     private val workerDao = db.workerDao()
     private val bandDao = db.bandDao()
+    private val assignmentDao = db.bandAssignmentDao()
     private val historyDao = db.exposureHistoryDao()
     private val alertDao = db.alertDao()
+
+    sealed class BandValidationResult {
+        data class Valid(val band: BandEntity) : BandValidationResult()
+        data class Invalid(val reason: String, val message: String) : BandValidationResult()
+    }
 
     // ── Reactive flows for UI ────────────────────────────────────────────────────
 
     val allWorkersFlow: Flow<List<WorkerEntity>> = workerDao.getAllFlow()
     val allBandsFlow: Flow<List<BandEntity>> = bandDao.getAllFlow()
+    val availableBandsFlow: Flow<List<BandEntity>> = bandDao.getAvailableBandsFlow()
     val allHistoryFlow: Flow<List<ExposureHistoryEntity>> = historyDao.getAllFlow()
     val activeAlertsFlow: Flow<List<AlertEntity>> = alertDao.getActiveAlertsFlow()
     val activeAlertCountFlow: Flow<Int> = alertDao.getActiveCountFlow()
@@ -53,30 +52,109 @@ class DoseGuardRepository(
         workerDao.getById(workerId)
     }
 
-    // ── Band operations ──────────────────────────────────────────────────────────
+    suspend fun getWorkerByEmployeeId(employeeId: String): WorkerEntity? = withContext(Dispatchers.IO) {
+        workerDao.getByEmployeeId(employeeId)
+    }
 
-    /**
-     * Look up a band by its QR-derived ID.
-     * Returns null if the band has never been scanned before.
-     */
+    suspend fun getAllWorkers(): List<WorkerEntity> = withContext(Dispatchers.IO) {
+        workerDao.getAll()
+    }
+
+    // ── Band operations & Validations ────────────────────────────────────────────
+
     suspend fun getBandById(bandId: String): BandEntity? = withContext(Dispatchers.IO) {
         bandDao.getById(bandId)
     }
 
-    /**
-     * Register a brand-new band from a first-time QR scan.
-     * bandStatus starts as UNASSIGNED until a worker is linked.
-     */
+    suspend fun getActiveBandForWorker(workerId: String): BandEntity? = withContext(Dispatchers.IO) {
+        bandDao.getActiveByWorker(workerId)
+    }
+
     suspend fun registerNewBand(bandId: String, qrData: String): BandEntity = withContext(Dispatchers.IO) {
         val band = BandEntity(bandId = bandId, qrData = qrData)
         bandDao.insert(band)
         band
     }
 
-    /** Link a band to a worker (called after registration form is submitted). */
-    suspend fun assignBandToWorker(bandId: String, workerId: String) = withContext(Dispatchers.IO) {
-        bandDao.assignWorker(bandId, workerId)
+    /**
+     * Validates a scanned or entered band for assignment to a target worker.
+     * Checks database existence, previous assignments, shelf-life expiration, and saturation.
+     */
+    suspend fun validateBandForAssignment(bandId: String, targetWorkerId: String): BandValidationResult = withContext(Dispatchers.IO) {
+        val band = bandDao.getById(bandId)
+            ?: return@withContext BandValidationResult.Invalid(
+                reason = "NOT_FOUND",
+                message = "Unknown band ($bandId). Not registered in the industrial inventory system."
+            )
+
+        val now = System.currentTimeMillis()
+
+        // 1. Expiry Check
+        if (band.bandStatus == "EXPIRED" || now > band.expiryDate) {
+            bandDao.updateStatus(bandId, "EXPIRED")
+            return@withContext BandValidationResult.Invalid(
+                reason = "EXPIRED",
+                message = "Chemical shelf life expired. Sensor strip reagent is no longer calibrated."
+            )
+        }
+
+        // 2. Saturation Check
+        if (band.bandStatus == "SATURATED" || band.currentEstimatedDose >= band.maximumDose) {
+            bandDao.updateStatus(bandId, "SATURATED")
+            return@withContext BandValidationResult.Invalid(
+                reason = "SATURATED",
+                message = "Strip saturated (${band.currentEstimatedDose} / ${band.maximumDose} ppm·hr). Maximum capacity reached."
+            )
+        }
+
+        // 3. Already Assigned to Another Worker Check
+        if (band.workerId.isNotBlank() && band.workerId != targetWorkerId && band.bandStatus in listOf("ACTIVE", "ASSIGNED")) {
+            val assignedWorker = workerDao.getById(band.workerId)
+            val workerName = assignedWorker?.name ?: "another worker"
+            val empId = assignedWorker?.employeeId ?: band.workerId
+            return@withContext BandValidationResult.Invalid(
+                reason = "ALREADY_ASSIGNED",
+                message = "Already assigned to $workerName ($empId)."
+            )
+        }
+
+        BandValidationResult.Valid(band)
     }
+
+    /**
+     * Executes the atomic assignment of a band to a worker.
+     * 1. Releases any previous active assignment for that worker or band
+     * 2. Updates the band record with workerId, ACTIVE status, and issue timestamp
+     * 3. Inserts a new BandAssignment audit log record
+     */
+    suspend fun assignBandToWorkerTransaction(workerId: String, bandId: String): BandAssignmentEntity = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+
+        // 1. Release previous active assignments for this worker
+        assignmentDao.releaseActiveForWorker(workerId, now)
+        bandDao.unassignPreviousBandsForWorker(workerId)
+
+        // 2. Release any active assignment previously attached to this specific band
+        assignmentDao.releaseActiveForBand(bandId, now)
+
+        // 3. Assign and update band table
+        bandDao.assignWorker(bandId, workerId, now)
+
+        // 4. Create new audit assignment entry
+        val assignment = BandAssignmentEntity(
+            assignmentId = "ASG-${UUID.randomUUID().toString().take(8).uppercase()}",
+            workerId = workerId,
+            bandId = bandId,
+            assignedAt = now,
+            status = "ACTIVE"
+        )
+        assignmentDao.insert(assignment)
+
+        assignment
+    }
+
+    suspend fun assignBandToWorker(bandId: String, workerId: String): BandAssignmentEntity =
+        assignBandToWorkerTransaction(workerId, bandId)
 
     fun getHistoryByWorkerFlow(workerId: String): Flow<List<ExposureHistoryEntity>> =
         historyDao.getByWorkerFlow(workerId)
@@ -84,19 +162,8 @@ class DoseGuardRepository(
     fun getRecentHistoryFlow(workerId: String, since: Long): Flow<List<ExposureHistoryEntity>> =
         historyDao.getRecentByWorkerFlow(workerId, since)
 
-    // ── Core scan & save ─────────────────────────────────────────────────────────
+    // ── Core scan & save (Direct Cumulative Dose Update) ─────────────────────────
 
-    /**
-     * Process a captured image and save the result.
-     *
-     * Steps:
-     * 1. Run ExposureEstimator on the image bytes
-     * 2. Persist ExposureHistoryEntity
-     * 3. Accumulate dose on BandEntity
-     * 4. Create AlertEntity if above threshold
-     *
-     * @return The EstimationResult so the caller (ViewModel) can drive UI state.
-     */
     suspend fun processScanAndSave(
         bandId: String,
         workerId: String,
@@ -108,13 +175,11 @@ class DoseGuardRepository(
     ): ExposureEstimator.EstimationResult = withContext(Dispatchers.IO) {
 
         val result = estimator.estimate(imageBytes, shiftHours)
-
-        val historyId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
 
         historyDao.insert(
             ExposureHistoryEntity(
-                historyId = historyId,
+                historyId = UUID.randomUUID().toString(),
                 workerId = workerId,
                 bandId = bandId,
                 scanTime = now,
@@ -127,8 +192,8 @@ class DoseGuardRepository(
             )
         )
 
-        // Accumulate on the band
-        bandDao.addDose(bandId, result.estimatedDosePpmHr, now)
+        // Update cumulative dose directly
+        bandDao.updateDose(bandId, result.estimatedDosePpmHr, now)
 
         // Fire alert if HIGH or CRITICAL
         if (result.riskLevel == "HIGH" || result.riskLevel == "CRITICAL") {
@@ -146,10 +211,6 @@ class DoseGuardRepository(
         result
     }
 
-    /**
-     * Simulated scan — skips real image processing and uses a synthetic ΔE value.
-     * Used by demo preset chips (Safe / Caution / Critical buttons).
-     */
     suspend fun processSimulatedScan(
         bandId: String,
         workerId: String,
@@ -157,9 +218,7 @@ class DoseGuardRepository(
         shiftHours: Double = 8.0
     ): ExposureEstimator.EstimationResult = withContext(Dispatchers.IO) {
 
-        // [AI_INTEGRATION_POINT] — this branch will be removed once real camera flow is complete
-        val solver = estimator as? KineticColorEstimator
-            ?: KineticColorEstimator()
+        val solver = estimator as? KineticColorEstimator ?: KineticColorEstimator()
         val result = solver.estimateFromDeltaE(deltaE, shiftHours)
 
         val now = System.currentTimeMillis()
@@ -175,7 +234,8 @@ class DoseGuardRepository(
                 riskLevel = result.riskLevel
             )
         )
-        bandDao.addDose(bandId, result.estimatedDosePpmHr, now)
+
+        bandDao.updateDose(bandId, result.estimatedDosePpmHr, now)
 
         if (result.riskLevel == "HIGH" || result.riskLevel == "CRITICAL") {
             alertDao.insert(

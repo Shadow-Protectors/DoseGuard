@@ -13,6 +13,12 @@ interface WorkerDao {
     @Query("SELECT * FROM workers WHERE workerId = :workerId")
     suspend fun getById(workerId: String): WorkerEntity?
 
+    @Query("SELECT * FROM workers WHERE UPPER(TRIM(employeeId)) = UPPER(TRIM(:employeeId)) LIMIT 1")
+    suspend fun getByEmployeeId(employeeId: String): WorkerEntity?
+
+    @Query("SELECT * FROM workers ORDER BY createdAt DESC")
+    suspend fun getAll(): List<WorkerEntity>
+
     @Query("SELECT * FROM workers ORDER BY createdAt DESC")
     fun getAllFlow(): Flow<List<WorkerEntity>>
 
