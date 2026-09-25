@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -24,21 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.doseguard.app.ui.theme.*
 import com.doseguard.app.viewmodel.RosterFilter
 import com.doseguard.app.viewmodel.SupervisorDashboardViewModel
 import com.doseguard.app.viewmodel.WorkerRosterItem
 import java.util.Locale
-
-// Theme colors
-private val BgDark       = Color(0xFF0B1120)
-private val CardSurface  = Color(0xFF161F36)
-private val CardBorder   = Color(0xFF263554)
-private val PrimaryCyan  = Color(0xFF06B6D4)
-private val CyanLight    = Color(0xFF22D3EE)
-private val SafeGreen    = Color(0xFF10B981)
-private val WarningAmber = Color(0xFFF59E0B)
-private val AlertRed     = Color(0xFFEF4444)
-private val TextMuted    = Color(0xFF94A3B8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,7 +47,7 @@ fun SupervisorDashboardScreen(
     val alertCount by vm.activeAlertCount.collectAsState()
 
     Scaffold(
-        containerColor = BgDark,
+        containerColor = SurfaceBg,
         topBar = {
             TopAppBar(
                 title = {
@@ -68,26 +57,26 @@ fun SupervisorDashboardScreen(
                                 text = "Dose",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = NavyPrimary
                                 )
                             )
                             Text(
                                 text = "Guard",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryCyan
+                                    color = AccentCyan
                                 )
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = PrimaryCyan.copy(alpha = 0.15f)
+                                shape = RoundedCornerShape(6.dp),
+                                color = BlueLight
                             ) {
                                 Text(
                                     text = "SUPERVISOR HUB",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = CyanLight,
+                                    color = NavyPrimary,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
@@ -95,7 +84,7 @@ fun SupervisorDashboardScreen(
                         Text(
                             text = "Sweetening & Refining Unit - Sector 04",
                             fontSize = 11.sp,
-                            color = TextMuted
+                            color = TextSecondary
                         )
                     }
                 },
@@ -111,7 +100,7 @@ fun SupervisorDashboardScreen(
                                 Icon(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = "Alerts",
-                                    tint = AlertRed
+                                    tint = StatusCritical
                                 )
                             }
                         }
@@ -120,19 +109,23 @@ fun SupervisorDashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = Color.White
+                            tint = TextSecondary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BgDark)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = CardWhite,
+                    titleContentColor = TextPrimary,
+                    actionIconContentColor = TextSecondary
+                )
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onScanWristband,
-                containerColor = PrimaryCyan,
-                contentColor = Color(0xFF0B1120),
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                containerColor = NavyPrimary,
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(4.dp)
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -147,13 +140,15 @@ fun SupervisorDashboardScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
             // ── 1. Active Alert Hazard Banner ──────────────────────────────────
             if (plantMetrics.alertCount > 0) {
                 item {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = AlertRed.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, AlertRed.copy(alpha = 0.5f)),
+                        color = StatusCriticalBg,
+                        border = BorderStroke(1.dp, StatusCritical.copy(alpha = 0.4f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -167,22 +162,22 @@ fun SupervisorDashboardScreen(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Warning, contentDescription = null, tint = AlertRed, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = StatusCritical, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "STATUTORY HAZARD ALERT ACTIVE",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = AlertRed
+                                    color = StatusCritical
                                 )
                                 Text(
                                     text = "${plantMetrics.alertCount} worker(s) exceeded OSHA 8-hr TWA limit (>10 ppm). Tap to review SOP.",
                                     fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.85f)
+                                    color = TextPrimary
                                 )
                             }
-                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AlertRed)
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = StatusCritical)
                         }
                     }
                 }
@@ -199,7 +194,7 @@ fun SupervisorDashboardScreen(
                         value = "${plantMetrics.totalWorkers}",
                         subtext = "Enrolled personnel",
                         icon = Icons.Default.People,
-                        accentColor = PrimaryCyan,
+                        accentColor = NavyPrimary,
                         modifier = Modifier.weight(1f)
                     )
                     KpiMetricCard(
@@ -207,7 +202,7 @@ fun SupervisorDashboardScreen(
                         value = "${plantMetrics.activeBandsCount}",
                         subtext = "Monitored dosimeters",
                         icon = Icons.Default.Watch,
-                        accentColor = SafeGreen,
+                        accentColor = StatusSafe,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -221,7 +216,7 @@ fun SupervisorDashboardScreen(
                         value = "${plantMetrics.alertCount}",
                         subtext = if (plantMetrics.alertCount == 0) "All zones safe" else "Action required",
                         icon = Icons.Default.Shield,
-                        accentColor = if (plantMetrics.alertCount == 0) SafeGreen else AlertRed,
+                        accentColor = if (plantMetrics.alertCount == 0) StatusSafe else StatusCritical,
                         modifier = Modifier.weight(1f)
                     )
                     KpiMetricCard(
@@ -229,7 +224,7 @@ fun SupervisorDashboardScreen(
                         value = "${String.format(Locale.US, "%.1f", plantMetrics.complianceRatePercent)}%",
                         subtext = "OSHA/DGMS index",
                         icon = Icons.Default.CheckCircle,
-                        accentColor = if (plantMetrics.complianceRatePercent >= 95.0) SafeGreen else WarningAmber,
+                        accentColor = if (plantMetrics.complianceRatePercent >= 95.0) StatusSafe else StatusModerate,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -244,33 +239,32 @@ fun SupervisorDashboardScreen(
                     Button(
                         onClick = onScanWristband,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = CardSurface
+                            containerColor = NavyPrimary
                         ),
-                        border = BorderStroke(1.dp, PrimaryCyan.copy(alpha = 0.5f)),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                     ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = PrimaryCyan, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Scan Wristband", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
 
-                    Button(
+                    OutlinedButton(
                         onClick = { vm.setEnrollDialogVisible(true) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = CardSurface
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = CardWhite
                         ),
-                        border = BorderStroke(1.dp, CardBorder),
+                        border = BorderStroke(1.dp, CardStroke),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                     ) {
-                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = CyanLight, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Enroll Worker", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Enroll Worker", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -292,12 +286,12 @@ fun SupervisorDashboardScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = CardSurface,
-                        unfocusedContainerColor = CardSurface,
-                        focusedBorderColor = PrimaryCyan,
-                        unfocusedBorderColor = CardBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedContainerColor = CardWhite,
+                        unfocusedContainerColor = CardWhite,
+                        focusedBorderColor = NavyPrimary,
+                        unfocusedBorderColor = CardStroke,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -315,14 +309,14 @@ fun SupervisorDashboardScreen(
                             onClick = { vm.setFilter(filter) },
                             label = { Text(filter.label, fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                containerColor = CardSurface,
-                                labelColor = TextMuted,
-                                selectedContainerColor = PrimaryCyan.copy(alpha = 0.2f),
-                                selectedLabelColor = CyanLight
+                                containerColor = CardWhite,
+                                labelColor = TextSecondary,
+                                selectedContainerColor = BlueLight,
+                                selectedLabelColor = NavyPrimary
                             ),
                             border = BorderStroke(
                                 1.dp,
-                                if (isSelected) PrimaryCyan else CardBorder
+                                if (isSelected) NavyPrimary else CardStroke
                             ),
                             shape = RoundedCornerShape(8.dp)
                         )
@@ -341,7 +335,7 @@ fun SupervisorDashboardScreen(
                         text = "PLANT WORKER ROSTER (${rosterList.size})",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextMuted,
+                        color = TextSecondary,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 1.sp
                     )
@@ -353,8 +347,8 @@ fun SupervisorDashboardScreen(
                 item {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = CardSurface,
-                        border = BorderStroke(1.dp, CardBorder),
+                        color = CardWhite,
+                        border = BorderStroke(1.dp, CardStroke),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 24.dp)
@@ -370,13 +364,13 @@ fun SupervisorDashboardScreen(
                             Text(
                                 text = "No workers match your filter",
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Try adjusting your search query or enroll a new worker profile.",
                                 fontSize = 12.sp,
-                                color = TextMuted,
+                                color = TextSecondary,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
@@ -424,13 +418,14 @@ private fun KpiMetricCard(
     accentColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Card(
         shape = RoundedCornerShape(12.dp),
-        color = CardSurface,
-        border = BorderStroke(1.dp, CardBorder),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        border = BorderStroke(1.dp, CardStroke),
+        elevation = CardDefaults.cardElevation(2.dp),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -440,23 +435,31 @@ private fun KpiMetricCard(
                     text = title,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextMuted,
+                    color = TextSecondary,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.5.sp
                 )
-                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = accentColor.copy(alpha = 0.12f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+                fontWeight = FontWeight.ExtraBold,
+                color = TextPrimary
             )
             Text(
                 text = subtext,
                 fontSize = 11.sp,
-                color = TextMuted,
+                color = TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -477,17 +480,26 @@ private fun WorkerRosterCard(
     val initials = worker.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("")
 
     val statusColor = when {
-        item.hasActiveAlert -> AlertRed
+        item.hasActiveAlert -> StatusCritical
         band == null -> TextMuted
-        band.bandStatus == "EXPIRED" -> WarningAmber
-        band.bandStatus == "SATURATED" -> AlertRed
-        else -> SafeGreen
+        band.bandStatus == "EXPIRED" -> StatusModerate
+        band.bandStatus == "SATURATED" -> StatusCritical
+        else -> StatusSafe
     }
 
-    Surface(
+    val statusBg = when {
+        item.hasActiveAlert -> StatusCriticalBg
+        band == null -> SurfaceBg
+        band.bandStatus == "EXPIRED" -> StatusModerateBg
+        band.bandStatus == "SATURATED" -> StatusCriticalBg
+        else -> StatusSafeBg
+    }
+
+    Card(
         shape = RoundedCornerShape(12.dp),
-        color = CardSurface,
-        border = BorderStroke(1.dp, if (item.hasActiveAlert) AlertRed.copy(alpha = 0.6f) else CardBorder),
+        colors = CardDefaults.cardColors(containerColor = CardWhite),
+        border = BorderStroke(1.dp, if (item.hasActiveAlert) StatusCritical.copy(alpha = 0.6f) else CardStroke),
+        elevation = CardDefaults.cardElevation(2.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCardClick() }
@@ -500,7 +512,7 @@ private fun WorkerRosterCard(
                 // Avatar Initials
                 Surface(
                     shape = CircleShape,
-                    color = statusColor.copy(alpha = 0.15f),
+                    color = statusBg,
                     border = BorderStroke(1.5.dp, statusColor),
                     modifier = Modifier.size(44.dp)
                 ) {
@@ -525,17 +537,19 @@ private fun WorkerRosterCard(
                             text = worker.name,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = Color.White
+                            color = TextPrimary
                         )
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF1E293B)
+                            color = SurfaceBg,
+                            border = BorderStroke(1.dp, CardStroke)
                         ) {
                             Text(
                                 text = worker.employeeId,
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = CyanLight,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NavyPrimary,
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                             )
                         }
@@ -543,7 +557,7 @@ private fun WorkerRosterCard(
                     Text(
                         text = "${worker.designation} • ${worker.department}",
                         fontSize = 12.sp,
-                        color = TextMuted,
+                        color = TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -552,19 +566,21 @@ private fun WorkerRosterCard(
                 // Shift tag
                 Surface(
                     shape = RoundedCornerShape(4.dp),
-                    color = Color.White.copy(alpha = 0.08f)
+                    color = SurfaceBg,
+                    border = BorderStroke(1.dp, CardStroke)
                 ) {
                     Text(
                         text = worker.shift,
                         fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color(0xFF1E293B))
+            HorizontalDivider(color = CardStroke)
             Spacer(modifier = Modifier.height(10.dp))
 
             // Band Assignment & Exposure Progress
@@ -591,12 +607,12 @@ private fun WorkerRosterCard(
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = TextPrimary
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = statusColor.copy(alpha = 0.15f)
+                            color = statusBg
                         ) {
                             Text(
                                 text = band.bandStatus,
@@ -612,7 +628,8 @@ private fun WorkerRosterCard(
                         text = "${String.format(Locale.US, "%.1f", dose)} / ${String.format(Locale.US, "%.0f", maxDose)} ppm·hr",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = if (fraction > 0.8f) AlertRed else CyanLight
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (fraction > 0.8f) StatusCritical else TextPrimary
                     )
                 }
 
@@ -621,14 +638,14 @@ private fun WorkerRosterCard(
                     progress = { fraction },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(5.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(3.dp)),
                     color = when {
-                        fraction >= 0.8f -> AlertRed
-                        fraction >= 0.5f -> WarningAmber
-                        else -> PrimaryCyan
+                        fraction >= 0.8f -> StatusCritical
+                        fraction >= 0.5f -> StatusModerate
+                        else -> StatusSafe
                     },
-                    trackColor = Color(0xFF1E293B)
+                    trackColor = CardStroke
                 )
             } else {
                 Row(
@@ -640,7 +657,7 @@ private fun WorkerRosterCard(
                     Text(
                         text = "No wristband currently assigned. Scan a band QR to link.",
                         fontSize = 11.sp,
-                        color = TextMuted
+                        color = TextSecondary
                     )
                 }
             }
@@ -657,9 +674,9 @@ private fun WorkerRosterCard(
                     onClick = onViewHistory,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.Timeline, contentDescription = null, tint = TextMuted, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Default.Timeline, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("History Trends", fontSize = 12.sp, color = TextMuted)
+                    Text("History Trends", fontSize = 12.sp, color = TextSecondary)
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
@@ -667,8 +684,8 @@ private fun WorkerRosterCard(
                 FilledTonalButton(
                     onClick = onScanSensor,
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = PrimaryCyan.copy(alpha = 0.15f),
-                        contentColor = CyanLight
+                        containerColor = BlueLight,
+                        contentColor = NavyPrimary
                     ),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
@@ -696,12 +713,12 @@ private fun EnrollWorkerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardSurface,
+        containerColor = CardWhite,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryCyan)
+                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = NavyPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Enroll Plant Worker", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Enroll Plant Worker", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
         },
         text = {
@@ -714,7 +731,7 @@ private fun EnrollWorkerDialog(
                 Text(
                     text = "Pre-register an employee in the plant database. A dosimeter band can be assigned later via QR scan.",
                     fontSize = 12.sp,
-                    color = TextMuted
+                    color = TextSecondary
                 )
 
                 // 1-Tap Demo Auto-Fill
@@ -726,13 +743,14 @@ private fun EnrollWorkerDialog(
                         designation = "Process Engineer"
                         shift = "Morning"
                     },
-                    border = BorderStroke(1.dp, PrimaryCyan.copy(alpha = 0.5f)),
+                    border = BorderStroke(1.dp, BluePrimary.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = BlueLight.copy(alpha = 0.4f)),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = PrimaryCyan, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.AutoFixHigh, contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Auto-Fill Demo Employee Profile", color = CyanLight, fontSize = 12.sp)
+                    Text("Auto-Fill Demo Employee Profile", color = NavyPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
 
                 OutlinedTextField(
@@ -741,10 +759,10 @@ private fun EnrollWorkerDialog(
                     label = { Text("Full Name *", fontSize = 12.sp) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = PrimaryCyan,
-                        unfocusedBorderColor = CardBorder
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = NavyPrimary,
+                        unfocusedBorderColor = CardStroke
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -755,10 +773,10 @@ private fun EnrollWorkerDialog(
                     label = { Text("Employee ID (e.g. EMP-7821) *", fontSize = 12.sp) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = PrimaryCyan,
-                        unfocusedBorderColor = CardBorder
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = NavyPrimary,
+                        unfocusedBorderColor = CardStroke
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -769,10 +787,10 @@ private fun EnrollWorkerDialog(
                     label = { Text("Department", fontSize = 12.sp) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = PrimaryCyan,
-                        unfocusedBorderColor = CardBorder
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = NavyPrimary,
+                        unfocusedBorderColor = CardStroke
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -783,16 +801,16 @@ private fun EnrollWorkerDialog(
                     label = { Text("Designation", fontSize = 12.sp) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = PrimaryCyan,
-                        unfocusedBorderColor = CardBorder
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = NavyPrimary,
+                        unfocusedBorderColor = CardStroke
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 // Shift Chips
-                Text("Shift Assignment", fontSize = 12.sp, color = TextMuted)
+                Text("Shift Assignment", fontSize = 12.sp, color = TextSecondary)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -803,10 +821,10 @@ private fun EnrollWorkerDialog(
                             onClick = { shift = s },
                             label = { Text(s, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                containerColor = BgDark,
-                                labelColor = TextMuted,
-                                selectedContainerColor = PrimaryCyan.copy(alpha = 0.2f),
-                                selectedLabelColor = CyanLight
+                                containerColor = SurfaceBg,
+                                labelColor = TextSecondary,
+                                selectedContainerColor = BlueLight,
+                                selectedLabelColor = NavyPrimary
                             )
                         )
                     }
@@ -821,14 +839,14 @@ private fun EnrollWorkerDialog(
                     }
                 },
                 enabled = name.isNotBlank() && employeeId.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryCyan)
+                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
             ) {
-                Text("Enroll Employee", color = Color(0xFF0B1120), fontWeight = FontWeight.Bold)
+                Text("Enroll Employee", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextMuted)
+                Text("Cancel", color = TextSecondary)
             }
         }
     )
