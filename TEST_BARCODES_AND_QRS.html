@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DoseGuard Industrial Test Codes — Workers & Dosimeter Bands</title>
+<style>
+  :root {
+    --primary: #0D47A1;
+    --primary-light: #E3F2FD;
+    --accent: #0284C7;
+    --surface: #F8FAFC;
+    --card: #FFFFFF;
+    --border: #E2E8F0;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--surface);
+    color: var(--text-primary);
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .header {
+    background: linear-gradient(135deg, #0D47A1 0%, #1565C0 60%, #0284C7 100%);
+    color: white;
+    padding: 32px 28px;
+    border-radius: 16px;
+    margin-bottom: 28px;
+    box-shadow: 0 10px 25px -5px rgba(13, 71, 161, 0.25);
+  }
+  .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .header p { font-size: 15px; opacity: 0.92; max-width: 800px; }
+  .header .badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 32px 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title span.tag {
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 2px 10px;
+    border-radius: 6px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .worker-name { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+  .emp-id-pill {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    background: #F1F5F9;
+    color: #334155;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #CBD5E1;
+  }
+  .meta-row {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .meta-row strong { color: var(--text-primary); }
+  .code-container {
+    background: #FAFAFA;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 14px 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .code-container img {
+    max-width: 100%;
+    height: auto;
+    background: white;
+    padding: 6px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .code-container .qr-img {
+    width: 180px;
+    height: 180px;
+  }
+  .code-container .barcode-img {
+    max-height: 85px;
+    width: auto;
+  }
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .status-available { background: #DCFCE7; color: #166534; }
+  .status-active { background: #FEF3C7; color: #92400E; }
+  .status-expired { background: #FEE2E2; color: #991B1B; }
+  .status-saturated { background: #FEE2E2; color: #991B1B; }
+  .status-unregistered { background: #F1F5F9; color: #475569; }
+
+  .notes-box {
+    background: #F8FAFC;
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-radius: 0 6px 6px 0;
+    margin-top: auto;
+  }
+  .payload-raw {
+    font-family: monospace;
+    font-size: 11px;
+    color: #0369A1;
+    word-break: break-all;
+    background: #E0F2FE;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+    display: block;
+  }
+  @media print {
+    body { background: white; padding: 0; }
+    .header { box-shadow: none; }
+    .card { break-inside: avoid; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>DoseGuard Industrial H₂S Dosimeter — Test Barcodes & QR Codes</h1>
+  <p>High-contrast, scannable test codes for testing the <strong>Worker-First Dosimeter Band Assignment</strong> workflow on Android devices or emulators with camera/webcam pass-through.</p>
+  <span class="badge">SIH 2026 Ready · Material 3 Verified</span>
+</div>
+
+<!-- SECTION 1: WORKER IDENTIFICATION -->
+<div class="section-title">
+  <span>1. Worker ID Cards & Badges</span>
+  <span class="tag">Screen 1 — Worker Identification</span>
+</div>
+<div class="grid">
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">Arun Kumar</div>
+        <div class="meta-row"><strong>Dept:</strong> Gas Processing</div>
+        <div class="meta-row"><strong>Role:</strong> Process Operator</div>
+        <div class="meta-row"><strong>Shift:</strong> Morning (06:00 - 14:00)</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP-1052</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA+UlEQVR4nO2XQW7DMAwEZwP//8vTA+Uoh7ho5CKSg/giEnsZghK5jhx8tyPhq7xR2SAVCcSezWcbrAcBAsF4z+azjdZDqiaJPZvPdlYJZi7Bfys5VN5FcFbZoD0gYuzZAmyj9Tx0pQ+4BdhGlPg8XoFtUAmEhEDqWIftZaXdtwimDbga2PPZBu9b2B+N+/O57v6pCiS1TFs1uazfaY6gFqkxYC7cnxuAotL2T+vTImwvKmgPhPKjqvPZTvrr7P8MZRTms432p7y17i5b5Kr9eVByL42sxvZnZethjWn2fTSf7aS/JiZ+jr+OkRhq6M1nO+uv5xB8ld+UHy7RX4IGT/8YAAAAAElFTkSuQmCC" class="qr-img" alt="QR EMP-1052" />
+      <span class="payload-raw">EMP-1052</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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" class="barcode-img" alt="Barcode EMP-1052" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Valid pre-enrolled worker. Test manual entry or barcode/QR scan.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">John Mathew</div>
+        <div class="meta-row"><strong>Dept:</strong> Gas Processing</div>
+        <div class="meta-row"><strong>Role:</strong> Field Technician</div>
+        <div class="meta-row"><strong>Shift:</strong> Morning (06:00 - 14:00)</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP02345</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA8UlEQVR4nO2XwQ6DMAxDnyf+/5e9Q8JapDFtLaJlggM08uVZaVojs/M89oRbOVFZQLGyMKWagK3RDwbQ6mitxrO1+kHpwqqq8WydipHfK2cRHKtIr+kZRHCAskBuNoxUqgnYWv1kU2RctWg8W4uyGRlEKcezNfqRsycOQ7Kue/88IOw4P7mehO1nJeYnOqO0ExfQeLaO/eZ4VeMzAVvreaDcZVH46v0pyzX3oMv6qfI1wopGzcHWm6/jREAxTuPZuvO1qog9AVuzn/rxH/0v2EY4xmgqtq+VKl8DxPBc+Lze5mvZeW7PwNafr0cQ3Mon5Qn/3U+bdcevfQAAAABJRU5ErkJggg==" class="qr-img" alt="QR EMP02345" />
+      <span class="payload-raw">EMP02345</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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" class="barcode-img" alt="Barcode EMP02345" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Target worker from specification prompt. Fresh band ready for assignment.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">Anita Desai</div>
+        <div class="meta-row"><strong>Dept:</strong> Desulfurization Unit</div>
+        <div class="meta-row"><strong>Role:</strong> Safety Inspector</div>
+        <div class="meta-row"><strong>Shift:</strong> Evening (14:00 - 22:00)</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP02346</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA+UlEQVR4nO2XwQ6DMAxD/Sb+/5e9Q9ICh0mjldaABhIQvYujBtfF+nC9PoE/+SHZJOLLEsa9Wq9tsB9ZkhC23KsC2oYJIMnEWkVVRdsEcRu9ZQrmybZ/cibrtQ33E55tIfeqgLbRfnJhsMw+c+u1jRCet5+St5q/xauEtstEdjza5uP4h+z12gaJZTDZCc0QSmgbIkbCxKx1Q6ih7SrZlJ4QxmBomWe9tkl/I+fN6L55dN9wLGQcLXLXfg75WqY1hStom8zX6QXO3aiItovkkEfzQKccufXaJkkceyAtoZS2r8kpX6fH+fZ5R5Ja5MnQc9O888B8/SjyBjaTV5CvBkYxAAAAAElFTkSuQmCC" class="qr-img" alt="QR EMP02346" />
+      <span class="payload-raw">EMP02346</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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" class="barcode-img" alt="Barcode EMP02346" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Currently wears active band WB-ASSIGNED-01.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">Rajesh Kumar</div>
+        <div class="meta-row"><strong>Dept:</strong> Refinery Sweetening Unit</div>
+        <div class="meta-row"><strong>Role:</strong> Plant Operator</div>
+        <div class="meta-row"><strong>Shift:</strong> Morning (06:00 - 14:00)</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP-7821</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA7UlEQVR4nO2XsQ6EMAxD/RD//8u+IWmVBemuSNcWwQCNvNiKmxisi+e4Al7kj8gpESeLfEU1n9ugHlkKVVap5nMb1RONSSW9ms/tLkL33iwG95GzFtRiPrdhPWE08utVuI3qaW0xpg+4BbiNIDxsn54SFkaOxpit/XYo/WYk5/KBZbj9ipDr08ii5YN99w9u+xO5tUpsm3cCgWgUlmSw1+H2G1LmW4+jMbfncxv3m1S17Hx/Sr7G3XNs67eSrzMcmDjO53YTIROc7X33T0EcEYEcEktx+xop+Tru0OZ5tOTrnAbOP+/53N58/TzkA9q1TJt26QivAAAAAElFTkSuQmCC" class="qr-img" alt="QR EMP-7821" />
+      <span class="payload-raw">EMP-7821</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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YHZ2trr41VdfmY8fgojZNT3U9vb27du3O32rqKhI38jMzPTJbaWmpiYlJamL33zzjU+m9dq33377xx9/6NtTpkxRRx9Ozp07p7YnTJhgMuFNN92ktvt8dspEcnKy2j569KjX80hFzK4tXLhQ31Dp6hoaGr7//ntN0xITE8ePH++rm7vnnnvU9m+//earab2zceNGtf3444+7G+b0aN9kQuN3g4KCvF7YmDFj1PbZs2e9nkcqYnYtOjr69ttv1zRtz549xke/n376qd1u13x0jK1ERESo7YHsuwautbV127Zt+vbw4cPVH7XeJk+erLb//PNPkzmN3zVeq7/Onz+vtoODg72eRypidkvPtbu7+/PPP1df3Lp1q6ZpFovFV8fYOofhP365e/B5ZWzZskW9IPfAAw9cd9117kZmZGToTwRqmmZ8eslJXV2dOiROSkq68cYbvV6b8ZhlIPNIRcxu9T7SPnHixMGDBzVNS0lJGTt2rA9vq76+Xm2Hhob6cOb+Mh5ju3vqSzdu3Ljc3Fx9u6am5u233+49prOzMzs7Wz+W8fPze+uttwayNuOfjPvuu28gU4lEzG5FRkYmJiZqmvbdd981NjZqhqp9e4ytadrevXvVdkxMjG8n91x1dbV6jjoiIuLee+81H79y5cr09HR9+6WXXnr44Yf37dt38eLFnp6ev//+e+vWrQkJCeXl5Zqm+fn5rV279u677/Z6bU7P85sc/w9Z0mK22WwWzzQ3N/c5m/4bY7PZiouLtf87xrZarQsWLPDhmvfs2XPo0CF1MS0tzYeT98tHH32kth977LE+3x0REBCwbdu21atXjxo1StO0oqKiadOmhYSEBAQEhIeHL1q0SH8hKi4urqys7Omnnx7I2vLy8mw2m749c+bM2267bSCzyTTYL3T7gHfnZjc1NRknMZ40smrVKv2LZ86c0X+hk5OTf/nlF/2706dPV9ca+Ekj1dXVYWFhauSECRMG66SRjo6O0aNHq5X8/vvvnl/3wIEDd955Z+8fssViWbp0aWNj4wDX9vHHH6s5hw0bVltb298ZOGlkqAsPD9ePDKuqqt588039iz45wLtw4UJVVdULL7yQlJSkH8NrmmaxWFavXq2eVbrCvvjiC/XScUpKSlRUlCfXOnHixIwZMxISEowHF4rD4diwYUNkZOSLL77o7kT3Ph0/fvyZZ55RF/Pz8/VTeuBssP+a+IDPT+dUe2aHw/HBBx8Yf1wBAQHGExI93DN7wmKxvPPOO94t3ieMj5A3bNjgyVUqKyvV2elWq/XJJ5+sqKjQ32hRX1+/ZcuWO+64Q80ZHx9//vz5/q7q0qVLxlez5syZ4+68UXNDYc9MzP9yF3NTU5NxVzlr1izjtXwVc3R0dFlZmXcr94m//vpLPUIOCgq6ePFin1f5559/9IfKmqb5+/uXlpb2HtPT0/PEE0+ou+nujRbu2Gy2uXPnqqvHxMS0trb2awZlKMTMYXYfQkNDjacN++pJ1BEjRowdOzYlJSUvL6+srOzYsWPGk8BMREZGmjyr9/zzz3u3noKCAv0FJE3TFixYoPa3Jl5//XV1Fserr746e/bs3mOsVuv69esnTZqkX9y9e3e/zjzPy8tT52CPGTOmtLQ0JCTE86sPNXxsUN8WLlz49ddfa5p2zTXXqFdi+sVqtervzfjf5Pj/b4EyOYVT6e7uVu8PsVqtzz33nLuRAQEBubm5Tz31lH6xoKBg5syZnqxqzZo177//vr4dFBS0Y8cO4zne6I09c9+ysrL0w5iOjg6Re4aysrKTJ0/q2+PHj582bVqfV6murlbvJ4uNjTU+Dd5bamqq2v7hhx88WdL27dvVUYbVai0qKkpISPDkikMZe+arjKrOh4wvLy9ZssST80lPnTqltsPDw80HG8+Wa2hosNlsVqvVZPz+/fsXLVqkDvvXr19vfOQMd9gzD3UtLS3qySGLxbJkyRJPrmX81CSH4cRyl4wDHA5HV1eXyeC6urq5c+e2tbXpF/Pz85cuXerJkkDMQ93mzZs7Ozv17dTUVOOneZhQz2NrmnbmzBnzwQ0NDWo7MDDQ+N5JJ01NTbNmzVLvG8vJyVm+fLkn64FGzDAeY3vy1JfO+GkEtbW15u8u3rdvn9q++eab3Q1ra2ubO3duXV2dfjEzM1M9AQZPEPOQdvjw4SNHjujbwcHBTh8GbiIqKkrtw/WPznY30mazrVmzRl1090GfNpstMzNz//79+sW0tLRPPvnEk4/Oh8IPa0gz7pYzMzP79TEgOTk5anvVqlUu39Jst9tzc3MPHz6sXwwICHD3dovs7Gz1AbpTpkwpKSkZNmyY54uBRsxDWUdHh/EDaD0/xtY9++yz6gQ4m822YMGCrKysioqK1tbW7u7uhoaG4uLilJSUtWvXqqu8/PLLLj8t7LXXXlN/VqKjo3fu3Gn+LzLg2uCdfOYz3r1rStO0lpYWNYm70znNDfxdU4PI+Kmgt9xyixcznDp1ysMnzDRNy8rKcndatfHztz1n8q9qjJ/j6YmwsDAv7v7/GvbMQ5eHH9xnYty4cUeOHFmyZIn568ahoaEffvhhQUHB4H4iknicNDJEnTx5Uv8MEE3T/Pz8Fi9e7N08ISEhmzZteuONNwoLCysrK3/99deWlpb29vbg4OCwsLApU6akpaU9+OCDTv+aC/8NFkdfr/gDuCpwmA0IQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAhBzIAQxAwIQcyAEMQMCEHMgBDEDAjxH98XFOIHFfFyAAAAAElFTkSuQmCC" class="barcode-img" alt="Barcode EMP-7821" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Assigned band WB-1001.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">Priya Sharma</div>
+        <div class="meta-row"><strong>Dept:</strong> Catalytic Cracking Unit</div>
+        <div class="meta-row"><strong>Role:</strong> Shift Supervisor</div>
+        <div class="meta-row"><strong>Shift:</strong> Night (22:00 - 06:00)</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP-9043</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA+UlEQVR4nO2XQQ6FIAxE3xjvf+X5iwKy8SeisZDoiuZtphlaRpmTbzsDH3mR7KA4GRBuVb62wX4wgJDBrZpA22g/qLqD3Kp8bQ8Qn5K3FDxHjOssJSl4gOzQXLGso8rXNtpPMUXRSLUoX9tgP8fMWF2Vr22QhCECYSSQNIu2ERJboM4QyPay788xNAZklR23aj7YyjNqR08GjD2JtjGiGBnFOSLCLNoukr2aAu05ldGq903u8zWycAxVvrab+RrR+lvWnz5fhzPVoHxtd0n9l9PC960nioTtSAlzabtE7COKuqzsWbRdJN1+k4UVMWEKbTfyTqKCj/wjP8kNUJddXT4LAAAAAElFTkSuQmCC" class="qr-img" alt="QR EMP-9043" />
+      <span class="payload-raw">EMP-9043</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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" class="barcode-img" alt="Barcode EMP-9043" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Valid registered supervisor.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name">Unknown Visitor</div>
+        <div class="meta-row"><strong>Dept:</strong> Contractor / Unregistered</div>
+        <div class="meta-row"><strong>Role:</strong> Guest</div>
+        <div class="meta-row"><strong>Shift:</strong> None</div>
+      </div>
+      <div>
+        <span class="emp-id-pill">EMP99999</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">2D QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA9ElEQVR4nO2XwQrDMAxDn0b//5e1wxw3h21syVgcaKFQIwrPBEuOzIvn9kq4lD8quB2QsSErr2cbUQ6iB8Wb1Xq20X7QowtZXbWebVKx8XPlXwS/VaTVBD9QDmgm4H6AKrCN9hPnIsvKqgDbiKJ+ZEQ3QevZRvMnIwinK+yaPzcwOoPUIjK2BNvXikzagAyKjiqwjfYjcJiBP/mnshJ+rfSCOKQKbJP+Jqy292zbz5GBY8AS4QkF2Gb363ACCcsF2IbzBzAPz3b73Dd/ziec2vK289PfF8CRrdr7Ptd2A3pzWM82vV8j5927ANv0fr2E4FLeKXd6Dl9u9yePVQAAAABJRU5ErkJggg==" class="qr-img" alt="QR EMP99999" />
+      <span class="payload-raw">EMP99999</span>
+
+      <div style="font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px;">1D Code-128 Barcode</div>
+      <img src="data:image/png;base64,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" class="barcode-img" alt="Barcode EMP99999" />
+    </div>
+
+    <div class="notes-box">
+      <strong>Test Note:</strong> Negative Test: Triggers 'Worker not found in database' error state.
+    </div>
+  </div>
+
+</div>
+
+<!-- SECTION 2: DOSIMETER BANDS -->
+<div class="section-title">
+  <span>2. Dosimeter Wristband QR Tags</span>
+  <span class="tag">Screen 2 — Scan Band QR & Validation Gate</span>
+</div>
+<div class="grid">
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">BAND-001285</div>
+        <div class="meta-row"><strong>Batch:</strong> BATCH-2026-A1</div>
+      </div>
+      <div>
+        <span class="status-pill status-available">AVAILABLE</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA/UlEQVR4nO2XSQ6EMAwEqxH//3LPIeuF0WBGOEhwIVZdysrWkTn4tiPwkhvJDiojg8C9yncL9oOhdGU0qny3aD9TFx5VvttVor72sgz+TXxI7jK4SnZobchl5FXcov30RSbLvcp3ixB5Hs9VvluQCISE2m8htwgpt46F3XbSMm6niQx101hWSQmWV3CLrjcDGCwsYcuPzQcblFwgS27pTeu4nSQ7mHbx9IP7ufMz5WvXSFpP7Xy3i/m69KU2Xflu8f0jAa6Xab2DFnE7SfYx1HgIoae+5yZSo5vrtbqU289kytdgeTwZ8t2C+aCdb2V2eizNd7uar3MMXvKNfABPv06bManW/wAAAABJRU5ErkJggg==" class="qr-img" alt="Band QR BAND-001285" />
+      <span class="payload-raw">DG:BAND:BAND-001285</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #10B981; font-weight: 700;">VALID (Proceeds to Confirmation Screen)</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Primary valid band from spec prompt. Ready for immediate assignment.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">WB-2005</div>
+        <div class="meta-row"><strong>Batch:</strong> BATCH-2026-A2</div>
+      </div>
+      <div>
+        <span class="status-pill status-available">AVAILABLE</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA9klEQVR4nO2XQQ6DMAwEZyv+/+XtwZhwaCuRIBwqcsLZy1h27EXmy3l9Ex7lQgVngQyYLXI9W4+yEJkgDGrRBGy9+aDIQlgtqmcbVITlj8pVBCcrjvoUEowrC5BDQFEfz8LWm08WxbK8RfVsPcruxQiLFtaz9e4fe9s7bnf1bJ2KJcA2oLZRp2DrUmzlI3KGs7AdVcLvGBxdlhd37jfACClcj2IPTcF2WNnPtzBwXn1CPdsp/trZfPVso/5aFpA7tZ6te/+w/fn8w/7J45jUBt23Psvu2zESVtdTzzbsrwFF/8kTsA3667U46bDr2Qb3TxHBo/xS3rp3dFVL5CKeAAAAAElFTkSuQmCC" class="qr-img" alt="Band QR WB-2005" />
+      <span class="payload-raw">DG:BAND:WB-2005</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #10B981; font-weight: 700;">VALID (Proceeds to Confirmation Screen)</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Fresh inventory dosimeter band. 30 days chemical shelf-life.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">WB-ASSIGNED-01</div>
+        <div class="meta-row"><strong>Batch:</strong> BATCH-2026-A1</div>
+      </div>
+      <div>
+        <span class="status-pill status-active">ACTIVE / ASSIGNED</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOgAAADoAQAAAADN0pXVAAABQElEQVR4nO2YuZLDMAxDgUz+/5ffFqSObdLIthhNPBMrFgoDJsXL6MP1+gT+0C9A35LjH5Lbr+3U5LyoV0iSUyYyfacm51W9cmrGyGLs1OS8rLdfyP/iV03O1+kN4z7x3q16Q6RxLH2nKOdVve5PWI5DvJfVfeh8Xo0xs0/X5LyIWrJsWd2659pXMNZxckECanJeRENbZFxk4OD8KwA12yIhBPkRanJe9+d0YoX2uJ3pz++oIqOIxGSsMj7Tn1+ScaTcZuVYvJfVTWi0gE4rRzN4cv7NfIRGkMr9M+PVVF/F8VV0/tEq1eS8GK/aNCNqSWv6CDU5r/YLOc1I+84FdE3Oy/1gq60klBkpOv+anC/q9y21eU4bZtXkfBFKt7LBcO68bh7ijGJrI6t79WaAjhyUyYitrB7Jv4++94c+g/4Bp2ibn30BLj8AAAAASUVORK5CYII=" class="qr-img" alt="Band QR WB-ASSIGNED-01" />
+      <span class="payload-raw">DG:BAND:WB-ASSIGNED-01</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #F59E0B; font-weight: 700;">ERROR: 'Already assigned to Anita Desai (EMP02346)'</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Negative Test: Rejection gate prevents duplicate active wearers.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">WB-EXP-01</div>
+        <div class="meta-row"><strong>Batch:</strong> BATCH-2025-Z9</div>
+      </div>
+      <div>
+        <span class="status-pill status-expired">EXPIRED</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA/klEQVR4nO2XQYrDQAwEq4P//+Xeg8bjWUjCWl4sBZKDsahLNfJoFJkXv8cr8CU3Erw3yNgwK9e7ZcjGyCCMOKoGbtk8KFIoEo2q3u0ikYWfkrsM/pnIUq3BdbLBHALGOqp6t2ye2RR5qerdMkTHifl1ejq4Ze8f2xjw/PD8yfePx7WjEUpd3K6QfbIZHAH7uJ0hir7IyPtVGs96tySxEVLMaoNibrdwO002YNlCZRlZH9ufdb8eD8euXe+WPT+eLxod6uGWJpKIcwMIoT5ueeII5YjUy+3PZFveIxDjb0O9W5p4DIWYBDHAu7idJMt+rX1/UxO3i/t1kcGXvCM/1xNic7A2H1kAAAAASUVORK5CYII=" class="qr-img" alt="Band QR WB-EXP-01" />
+      <span class="payload-raw">DG:BAND:WB-EXP-01</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #EF4444; font-weight: 700;">ERROR: 'Chemical shelf life expired. Sensor no longer calibrated.'</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Negative Test: Lead acetate reagent past 30-day calibration window.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">WB-SAT-99</div>
+        <div class="meta-row"><strong>Batch:</strong> BATCH-2026-X1</div>
+      </div>
+      <div>
+        <span class="status-pill status-saturated">SATURATED</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQAAAACFI5MzAAAA7klEQVR4nO2XwQ4CIRBDX83+/y/XA8OCB02cNQ4YOdHtpU3Zocg8WbdnxJ/5IoN7QMbAiVyvLcMchAdhsE60gLasH8KFWjiB6rVdZNQyKlTwAeaY9n4wVK8t7ec0YQ1Ury3rRx3IE6rXlvQz36geqF5b0o8MskA9HCMvoO3KvJaHl1W0JRkLQGFHuH1YQtvbTOTivouJ4BW0ZfMBCFduR8/b9h2N6SawLAtr23zmfj0qtn+iX6u1bHnv/wckEWPACKF1tOUZc466zd8/fbUzZ238/pn7des9jsuoXtvFfq0IJnC9tov3T5GCP/OKuQPVV1KRb58DIwAAAABJRU5ErkJggg==" class="qr-img" alt="Band QR WB-SAT-99" />
+      <span class="payload-raw">DG:BAND:WB-SAT-99</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #EF4444; font-weight: 700;">ERROR: 'Strip saturated (50.0 / 50.0 ppm·hr). Replace the band.'</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Negative Test: Optical density maxed out, chemical reagent fully converted.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div>
+        <div class="worker-name" style="font-family: monospace; font-size: 18px;">BAND-UNKNOWN-999</div>
+        <div class="meta-row"><strong>Batch:</strong> UNKNOWN</div>
+      </div>
+      <div>
+        <span class="status-pill status-unregistered">UNREGISTERED</span>
+      </div>
+    </div>
+
+    <div class="code-container">
+      <div style="font-size: 12px; font-weight: 600; color: #475569;">Wristband QR Code</div>
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOgAAADoAQAAAADN0pXVAAABQ0lEQVR4nO2Yu5LDMAwDFzf+/1/GFaQexU2K0I55nqRSiCKLmKYgybz4/LwSv+o/UA9QrCwDCDwqTZmLfkmfDutelabMVb+INGuQ1rop80mqY3T5b/UuqpPVY1trNfTNVBf7DYeyhNF8gbsyV/1qfrOQ5VnpyVz0O/rXWhvRzVSXqkLEXJbTsbLalrmkColhdW2+7sz8riqj7GRn6ACi1pW5omJje2y+4HzABrsnc1E1AgmcWVKY+AfaMpdUIe/pysYxxPoyF9RtJI/43IDqIjX3XxlZCGuPlD2Zq/MKhkN7rvAj59WxDM5OXhtTT+ai3xUilU9bhofOq/1+Q4aRPMJzT+byeTAtjkQp0m5T5rNUZeIAZ5ruQHWZGm/tvLfTY89H2NHODrOeA7ox85vqdr8hR5RGzlDdlLl4Hrzld7/qZ9Rfzzd+x7P1lwkAAAAASUVORK5CYII=" class="qr-img" alt="Band QR BAND-UNKNOWN-999" />
+      <span class="payload-raw">DG:BAND:BAND-UNKNOWN-999</span>
+    </div>
+
+    <div style="margin-bottom: 8px; font-size: 12px;">
+      <strong>Expected Validation Result:</strong><br/>
+      <span style="color: #64748B; font-weight: 700;">ERROR: 'Unknown band. Not registered in the system.'</span>
+    </div>
+
+    <div class="notes-box">
+      <strong>Workflow Test:</strong> Negative Test: Band ID not present in plant Room database.
+    </div>
+  </div>
+
+</div>
+
+<footer style="margin-top: 40px; padding: 20px; text-align: center; color: #64748B; font-size: 13px; border-top: 1px solid #E2E8F0;">
+  DoseGuard Industrial H₂S Dosimeter Management System · Smart India Hackathon (SIH 2026)
+</footer>
+
+</body>
+</html>
