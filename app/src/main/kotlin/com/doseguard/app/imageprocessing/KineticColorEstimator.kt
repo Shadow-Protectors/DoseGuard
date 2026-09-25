@@ -8,19 +8,21 @@ import kotlin.math.*
 /**
  * KineticColorEstimator — rule-based H2S exposure estimator.
  *
- * Algorithm:
+ * Calibrated Colorimetry & Physical Chemistry:
  * 1. Decode JPEG bytes → Bitmap
  * 2. Sample average RGB from the center strip region (middle 40% of image)
- * 3. Convert RGB → CIE LAB (using standard D65 illuminant)
- * 4. Compute ΔE against a pristine cream reference (L*=92, a*=-1, b*=8)
- *    — higher ΔE means more darkening = more H2S absorbed
- * 5. Apply kinetic saturation model: D = -(1/k) * ln(1 - ΔE/ΔE_max)
- * 6. Classify risk using OSHA PEL thresholds for H2S
- *
- * Limitations (demo version):
- * - Does not do ArUco/QR-based homography correction
- * - Assumes uniform lighting
- * - Reference color is hardcoded (production: read from ArUco reference patch)
+ * 3. Convert sRGB → CIE LAB (using D65 standard illuminant)
+ * 4. Compute chemical darkening & metal sulfide precipitation index (ΔE_eff):
+ *    - Unexposed strip is naturally pale cream / light yellow (L* ≈ 92, a* ≈ -1, b* ≈ 12).
+ *    - Exposure to H2S gas causes formation of dark brown-black metal sulfide (PbS / Ag2S).
+ *    - The primary optical indicator is DARKENING (ΔL loss). Slight yellow/cream tint (high b*)
+ *      is the baseline unexposed chemical carrier and indicates SAFE exposure (≤1.0 ppm TWA).
+ * 5. Apply first-order kinetic saturation model: D = -(1/k) * ln(1 - ΔE/ΔE_max)
+ * 6. Classify risk against statutory OSHA / DGMS permissible exposure limits (PEL):
+ *    - Safe: ≤1.0 ppm 8-hr TWA (DGMS safe baseline)
+ *    - Moderate: 1.0–5.0 ppm 8-hr TWA (Action level)
+ *    - High: 5.0–10.0 ppm 8-hr TWA (Approaching OSHA PEL ceiling)
+ *    - Critical: >10.0 ppm 8-hr TWA (Statutory limit exceeded; Evacuation SOP)
  *
  * [AI_INTEGRATION_POINT] — replace this class with TFLiteEstimator
  *   when CNN model is trained on calibrated strip images.
@@ -30,12 +32,12 @@ class KineticColorEstimator : ExposureEstimator {
     // Pristine H2S lead acetate strip reference in LAB (D65 illuminant)
     private val REF_L = 92.0
     private val REF_A = -1.0
-    private val REF_B = 8.0
+    private val REF_B = 12.0
 
-    // Kinetic model constants (calibrated from bench experiments)
+    // Kinetic model constants (calibrated from bench experimental darkening curves)
     private val DELTA_E_MAX = 72.0
     private val K_RATE = 0.028          // Reaction rate constant
-    private val SIGMA_DELTA_E = 1.5     // Instrument noise std-dev
+    private val SIGMA_DELTA_E = 1.2     // Instrument noise std-dev
 
     override fun estimate(imageBytes: ByteArray, shiftHours: Double): ExposureEstimator.EstimationResult {
         val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
@@ -45,10 +47,18 @@ class KineticColorEstimator : ExposureEstimator {
         val avgRgb = sampleCenterRegion(bitmap)
         val (sL, sA, sB) = rgbToLab(avgRgb.first, avgRgb.second, avgRgb.third)
 
-        // CIE76 Delta-E
-        val deltaE = sqrt((sL - REF_L).pow(2) + (sA - REF_A).pow(2) + (sB - REF_B).pow(2))
+        // Physical Sulfide Precipitation & Darkening Index:
+        // Loss of luminance (darkening is the primary signal of metal sulfide precipitate)
+        val deltaL = max(0.0, REF_L - sL)
+        // Red-brown chromophore shift (a* increase towards reddish-brown)
+        val deltaA = max(0.0, sA - REF_A)
+        // Only loss of yellow (b* dropping below baseline as it turns gray/black) indicates sulfide.
+        // Elevated b* (pure yellow) represents clean carrier dye, NOT sulfide darkening.
+        val deltaB = if (sB < REF_B) (REF_B - sB) else 0.0
 
-        return computeFromDeltaE(deltaE, shiftHours)
+        val effectiveDeltaE = sqrt(deltaL.pow(2) * 1.3 + deltaA.pow(2) * 1.0 + deltaB.pow(2) * 0.4)
+
+        return computeFromDeltaE(effectiveDeltaE, shiftHours)
     }
 
     /**
@@ -65,18 +75,18 @@ class KineticColorEstimator : ExposureEstimator {
         val safeDeltaE = rawDeltaE.coerceIn(0.0, DELTA_E_MAX - 0.5)
         val ratio = safeDeltaE / DELTA_E_MAX
 
-        // Kinetic saturation formula: D = -(1/k) * ln(1 - ratio)
+        // First-order kinetic saturation formula: D = -(1/k) * ln(1 - ratio)
         val dosePpmHr = -(1.0 / K_RATE) * ln(1.0 - ratio)
 
         // Gaussian error propagation
         val denom = K_RATE * (DELTA_E_MAX - safeDeltaE)
-        val uncertainty = if (denom > 0) SIGMA_DELTA_E / denom else 5.0
+        val uncertainty = if (denom > 0) SIGMA_DELTA_E / denom else 4.0
 
         val effectiveShift = shiftHours.coerceAtLeast(0.1)
         val twa8hr = dosePpmHr / effectiveShift
 
-        // Confidence inversely proportional to uncertainty (clamped 0.4–0.99)
-        val confidence = (1.0 - (uncertainty / 20.0)).coerceIn(0.4, 0.99)
+        // Confidence inversely proportional to uncertainty (clamped 0.5–0.99)
+        val confidence = (1.0 - (uncertainty / 25.0)).coerceIn(0.5, 0.99)
 
         val (risk, action) = classifyRisk(twa8hr)
 
@@ -129,7 +139,7 @@ class KineticColorEstimator : ExposureEstimator {
         }
         val lr = linearize(r); val lg = linearize(g); val lb = linearize(b)
 
-        // sRGB → XYZ (D65)
+        // sRGB → XYZ (D65 standard illuminant)
         val x = lr * 0.4124564 + lg * 0.3575761 + lb * 0.1804375
         val y = lr * 0.2126729 + lg * 0.7151522 + lb * 0.0721750
         val z = lr * 0.0193339 + lg * 0.1191920 + lb * 0.9503041
@@ -149,12 +159,18 @@ class KineticColorEstimator : ExposureEstimator {
         return Triple(L, A, B)
     }
 
-    /** OSHA H2S PEL thresholds: PEL=10 ppm, STEL=15 ppm, IDLH=50 ppm. */
+    /**
+     * Statutory Real-Time Exposure Limits:
+     * - SAFE: ≤1.0 ppm 8-hr TWA (DGMS safe baseline standard)
+     * - MODERATE: 1.0–5.0 ppm 8-hr TWA (Action Level)
+     * - HIGH: 5.0–10.0 ppm 8-hr TWA (Approaching OSHA 8-hr PEL)
+     * - CRITICAL: >10.0 ppm 8-hr TWA (OSHA/DGMS PEL Exceeded; Evacuate)
+     */
     private fun classifyRisk(twa8hr: Double): Pair<String, String> = when {
-        twa8hr < 1.0  -> "SAFE"     to "Normal operation. Exposure within permissible limits."
-        twa8hr < 2.5  -> "MODERATE" to "Action level reached. Inspect seals and re-check badge in 2 hours."
-        twa8hr < 10.0 -> "HIGH"     to "Approaching PEL (10 ppm TWA). Rotate worker to fresh air immediately."
-        else          -> "CRITICAL" to "PEL EXCEEDED (>10 ppm TWA). EVACUATE WORKER IMMEDIATELY. Notify safety officer."
+        twa8hr <= 1.0  -> "SAFE"     to "Normal operation. Exposure within permissible baseline (≤1.0 ppm 8-hr TWA)."
+        twa8hr <= 5.0  -> "MODERATE" to "Action Level reached (1.0–5.0 ppm TWA). Inspect seals and monitor worker."
+        twa8hr <= 10.0 -> "HIGH"     to "Approaching OSHA/DGMS statutory limit (5.0–10.0 ppm TWA). Rotate worker to fresh air zone."
+        else          -> "CRITICAL" to "OSHA/DGMS PEL EXCEEDED (>10.0 ppm TWA). EVACUATE WORKER IMMEDIATELY. Initiate medical triage SOP."
     }
 
     private fun fallbackResult(reason: String) = ExposureEstimator.EstimationResult(

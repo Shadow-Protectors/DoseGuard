@@ -172,16 +172,139 @@ Confidence Score = 1.0 - (Uncertainty / 20.0)   [Clamped between 0.40 and 0.99]
 
 | Exposure Range (8-hr TWA) | Risk Level | Status Color | Required Industrial SOP / Action |
 | :--- | :--- | :--- | :--- |
-| **< 1.0 ppm** | **SAFE** | Green | Normal work. Concentration well within permissible boundaries. |
-| **1.0 to 2.5 ppm** | **MODERATE** | Yellow | Action Level reached. Inspect pipe seals, re-scan in 2 hours. |
-| **2.5 to 10.0 ppm** | **HIGH** | Orange | Approaching OSHA PEL. Rotate worker to fresh air zone immediately. |
-| **>= 10.0 ppm** | **CRITICAL** | Red | **PEL EXCEEDED.** Mandatory evacuation, SCBA respirator, log alert. |
+| **≤ 1.0 ppm** | **SAFE** | Green | Normal operation. Ambient H₂S within safe baseline (≤1.0 ppm TWA / DGMS standard). |
+| **1.0 to 5.0 ppm** | **MODERATE** | Yellow | Action Level reached. Trace H₂S detected. Inspect ventilation and re-check badge in 2 hrs. |
+| **5.0 to 10.0 ppm** | **HIGH** | Orange | Approaching OSHA/DGMS statutory limit (10 ppm TWA). Rotate worker to fresh air zone. |
+| **> 10.0 ppm** | **CRITICAL** | Red | **PEL EXCEEDED.** Immediate evacuation, SCBA respirator, notify safety officer, trigger medical SOP. |
 
 ---
 
-## Slide 6: Slide Presentation Summary Points
+## Slide 6: Operational Hierarchy & Decision Trees
+
+### 1. New Worker Registration & Band Assignment Hierarchy
+```
+                New Worker
+                    │
+                    ▼
+             Register Worker
+                    │
+                    ▼
+            Generate Worker ID
+                    │
+                    ▼
+          Scan Wristband QR Code
+                    │
+                    ▼
+        Assign Band to Worker
+                    │
+                    ▼
+              Save Database
+```
+
+### 2. Daily Shift Operation & Validity Gate Hierarchy
+```
+                 Daily Operation
+                        │
+                        ▼
+                Scan Band QR Code
+                        │
+                        ▼
+               Check Band Validity
+             ┌──────────┴──────────┐
+             │                     │
+          Expired                Active
+             │                     │
+             ▼                     ▼
+    Replace Wristband        Open Camera
+                                   │
+                                   ▼
+                        Capture Wristband Image
+                                   │
+                                   ▼
+                     Detect Reference Color Scale
+                                   │
+                                   ▼
+                        Lighting Calibration
+                                   │
+                                   ▼
+                         Crop H₂S Strip Region
+                                   │
+                                   ▼
+                    Extract Color Features (CIELAB)
+                                   │
+                                   ▼
+                    AI Regression / CNN Regression
+                                   │
+                                   ▼
+                 Estimate Cumulative H₂S Exposure
+                                   │
+                                   ▼
+                    Save Exposure History Record
+                                   │
+                                   ▼
+                      Compare with Safety Limit
+             ┌──────────┴──────────┐
+             │                     │
+           Safe                Threshold Exceeded
+             │                     │
+             ▼                     ▼
+    Continue Monitoring     Alert Supervisor
+                                   │
+                                   ▼
+                      Medical / Safety Action
+```
+
+### 3. New Band vs. Existing Band Decision Tree
+```
+              New Band / Scan QR
+                      │
+                      ▼
+                   Scan QR
+                      │
+                      ▼
+                 Band Exists?
+                      │
+              ┌───────┴───────┐
+              │               │
+             No              Yes
+              │               │
+              ▼               ▼
+       Register Worker   Load Worker Details
+              │               │
+              ▼               ▼
+         Assign Band     Capture Wristband Image
+              │               │
+              └───────┬───────┘
+                      │
+                      ▼
+               Image Processing
+        (Lighting Calibration & CIELAB)
+                      │
+                      ▼
+               AI Model / Solver
+                      │
+                      ▼
+                Estimated Dose
+                      │
+                      ▼
+             Save ExposureHistory
+                      │
+                      ▼
+               Threshold Check
+              ┌───────┴───────┐
+              │               │
+            Safe            Alert
+              │               │
+              ▼               ▼
+        History Chart   Alert Table & SOP
+```
+
+---
+
+## Slide 7: Slide Presentation Summary Points
 
 1. **Zero Infrastructure Cost:** Transforms everyday Android smartphones into lab-grade colorimetric spectrophotometers.
-2. **Physical Reaction Fidelity:** Replaces naive linear RGB estimation with scientifically accurate CIE LAB Delta E and first-order chemical rate kinetics.
-3. **Regulatory Ready:** Directly maps cumulative chemical dose to OSHA, NIOSH, and DGMS occupational exposure standards.
-4. **Built for Harsh Environments:** Native Jetpack Compose, CameraX, and Room ensure uninterrupted operation in remote, disconnected industrial sites.
+2. **Physical Reaction Fidelity:** Replaces naive linear RGB estimation with scientifically accurate CIE LAB Delta E darkening physics and first-order chemical rate kinetics.
+3. **Calibrated Colorimetry:** Baseline unexposed cream/yellow dye correctly recognized as Safe (≤1.0 ppm TWA); metal sulfide precipitate darkening accurately triggers action and alarm levels.
+4. **Regulatory Ready:** Directly maps cumulative chemical dose to OSHA, NIOSH, and DGMS statutory exposure standards.
+5. **Built for Harsh Environments:** Native Jetpack Compose, CameraX, and Room ensure uninterrupted operation in remote, disconnected industrial sites.

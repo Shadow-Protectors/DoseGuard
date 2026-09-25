@@ -6,6 +6,7 @@ package com.doseguard.app.navigation
  */
 sealed class Screen(val route: String) {
     object Splash          : Screen("splash")
+    object Dashboard       : Screen("dashboard")
     object QrScan          : Screen("qr_scan")
     object WorkerRegistration : Screen("worker_registration/{bandId}/{qrData}") {
         fun createRoute(bandId: String, qrData: String) =

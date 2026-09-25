@@ -213,7 +213,7 @@ fun ScanResultScreen(
                     shape    = RoundedCornerShape(12.dp),
                     colors   = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
                 ) {
-                    Icon(Icons.Default.ShowChart, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.Timeline, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
                     Text("View History", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }

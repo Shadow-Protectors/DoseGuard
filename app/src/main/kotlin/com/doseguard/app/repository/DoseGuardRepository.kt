@@ -64,6 +64,10 @@ class DoseGuardRepository(
         bandDao.getById(bandId)
     }
 
+    suspend fun getActiveBandForWorker(workerId: String): BandEntity? = withContext(Dispatchers.IO) {
+        bandDao.getActiveByWorker(workerId)
+    }
+
     suspend fun registerNewBand(bandId: String, qrData: String): BandEntity = withContext(Dispatchers.IO) {
         val band = BandEntity(bandId = bandId, qrData = qrData)
         bandDao.insert(band)

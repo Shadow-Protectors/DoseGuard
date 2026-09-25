@@ -42,7 +42,11 @@ fun WorkerDetailScreen(
     // Load from Room on first composition
     LaunchedEffect(workerId, bandId) {
         worker = repository.getWorkerById(workerId)
-        band   = repository.getBandById(bandId)
+        band   = if (bandId.isNotBlank() && bandId != "unassigned" && bandId != "all") {
+            repository.getBandById(bandId)
+        } else {
+            repository.getActiveBandForWorker(workerId)
+        }
     }
 
     Scaffold(

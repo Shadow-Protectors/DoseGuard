@@ -30,9 +30,32 @@ fun DoseGuardNavGraph(
         composable(Screen.Splash.route) {
             SplashScreen(
                 onFinished = {
-                    navController.navigate(Screen.QrScan.route) {
+                    navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        // ── 2. Supervisor Plant Hub / Dashboard ──────────────────────────────
+        composable(Screen.Dashboard.route) {
+            val vm: SupervisorDashboardViewModel = viewModel()
+            SupervisorDashboardScreen(
+                vm = vm,
+                onScanWristband = {
+                    navController.navigate(Screen.QrScan.route)
+                },
+                onWorkerSelected = { workerId, bandId ->
+                    navController.navigate(Screen.WorkerDetail.createRoute(workerId, if (bandId.isBlank()) "unassigned" else bandId))
+                },
+                onViewHistory = { workerId, bandId ->
+                    navController.navigate(Screen.ExposureHistory.createRoute(workerId, bandId))
+                },
+                onOpenAlerts = { workerId, bandId ->
+                    navController.navigate(Screen.Alert.createRoute(workerId, if (bandId.isBlank()) "none" else bandId))
+                },
+                onOpenSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
