@@ -97,7 +97,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text  = "SIH 2024 • Team 26118",
+                text  = "SIH 2026 • Team 26118",
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp,
                 modifier = Modifier.alpha(alpha.value)
